@@ -8,8 +8,7 @@ import tempfile
 import os
 import re
 
-# ====================== 全局常量定义（统一数值类型为float）======================
-# 对齐方式映射
+# ====================== 全局常量定义 ======================
 ALIGN_MAP = {
     "左对齐": WD_ALIGN_PARAGRAPH.LEFT,
     "居中": WD_ALIGN_PARAGRAPH.CENTER,
@@ -19,7 +18,6 @@ ALIGN_MAP = {
 }
 ALIGN_LIST = list(ALIGN_MAP.keys())
 
-# 行距配置（所有数值统一为float，彻底解决类型混合报错）
 LINE_TYPE_MAP = {
     "单倍行距": WD_LINE_SPACING.SINGLE,
     "1.5倍行距": WD_LINE_SPACING.ONE_POINT_FIVE,
@@ -36,20 +34,21 @@ LINE_RULE = {
     "固定值": {"default": 20.0, "min": 6.0, "max": 100.0, "step": 1.0, "label": "固定值(磅)"}
 }
 
-# 字体配置
 FONT_LIST = ["宋体", "黑体", "微软雅黑", "楷体", "仿宋"]
 FONT_SIZE_LIST = ["初号", "小初", "一号", "小一", "二号", "小二", "三号", "小三", "四号", "小四", "五号", "小五", "六号", "小六"]
 FONT_SIZE_NUM = {k:v for k,v in zip(FONT_SIZE_LIST, [42.0,36.0,26.0,24.0,22.0,18.0,16.0,15.0,14.0,12.0,10.5,9.0,7.5,6.5])}
 EN_FONT_LIST = ["和正文一致", "Times New Roman", "Arial", "Calibri"]
 
-# 标题识别正则
 TITLE_RULE = {
     "一级标题": re.compile(r"^[一二三四五六七八九十]+、\s*.{0,40}$|^第[一二三四五六七八九十]+章\s*.{0,40}$|^第\d+章\s*.{0,40}$|^\d+、\s*.{0,40}$"),
     "二级标题": re.compile(r"^[（(][一二三四五六七八九十]+[）)]\s*.{0,50}$|^\d+\.\s+.{0,50}$|^\d+、\s*.{0,50}$"),
-    "三级标题": re.compile(r"^[（(]\d+[）)]\s*.{0,60}$|^\d+\.\d+\s+.{0,60}$|^\d+\.\d+\.\d+\s*.{0,60}$|^\d+\）\s*.{0,60}$")
+    "三级标题": re.compile(r"^[（(]\d+[）)]\s*.{0,60}$|^\d+\.\d+\s+.{0,60}$|^\d+\.\d+\.\d+\s+.{0,60}$|^\d+\）\s*.{0,60}$")
 }
 
-# ====================== 模板库（line_value统一为float）======================
+DOUBAO_MODEL = "ep-20250628104918-7rqxd"
+DOUBAO_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+
+# ====================== 模板库 ======================
 GENERAL_TPL = {
     "默认格式": {
         "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
@@ -101,18 +100,8 @@ OFFICIAL_TPL = {
     }
 }
 
-# API配置
-try:
-    DOUBAO_KEY = st.secrets["DOUBAO_API_KEY"]
-    DOUBAO_MODEL = st.secrets.get("DOUBAO_MODEL", "ep-20250628104918-7rqxd")
-except:
-    DOUBAO_KEY = ""
-    DOUBAO_MODEL = "ep-20250628104918-7rqxd"
-DOUBAO_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
-
 # ====================== 核心工具函数 ======================
 def is_protected_para(para):
-    """保护带图片、分页符、域代码的段落，只改字体，不动内容"""
     if para.paragraph_format.page_break_before:
         return True
     for run in para.runs:
@@ -127,7 +116,6 @@ def is_protected_para(para):
     return False
 
 def set_run_font(run, font_name, font_size, bold=None):
-    """安全设置字体，不改变内容"""
     try:
         run.font.name = font_name
         run._element.rPr.rFonts.set(qn('w:eastAsia'), font_name)
@@ -138,7 +126,6 @@ def set_run_font(run, font_name, font_size, bold=None):
         pass
 
 def set_en_number_font(run, font_name, font_size, bold=None):
-    """安全设置数字字体，不改变位置"""
     try:
         if font_name == "和正文一致":
             return
@@ -152,7 +139,6 @@ def set_en_number_font(run, font_name, font_size, bold=None):
         pass
 
 def get_title_level(para, enable_regex, last_title_level):
-    """带上下文推理的标题识别"""
     style_name = para.style.name
     if "Heading 1" in style_name or "标题 1" in style_name:
         return "一级标题"
@@ -160,14 +146,11 @@ def get_title_level(para, enable_regex, last_title_level):
         return "二级标题"
     if "Heading 3" in style_name or "标题 3" in style_name:
         return "三级标题"
-    
     if not enable_regex:
         return "正文"
-    
     text = para.text.strip()
     if not text or len(text) > 100:
         return "正文"
-    
     if last_title_level == "一级标题":
         if TITLE_RULE["二级标题"].match(text):
             return "二级标题"
@@ -180,21 +163,16 @@ def get_title_level(para, enable_regex, last_title_level):
             return "二级标题"
         if TITLE_RULE["一级标题"].match(text):
             return "一级标题"
-    
     for level in ["一级标题", "二级标题", "三级标题"]:
         if TITLE_RULE[level].match(text):
             return level
     return "正文"
 
-# ====================== 【修复核心】数字处理函数（不再调用Run.split()）======================
 def process_number_in_para(para, body_font, body_size, number_config):
-    """处理数字，绝对不改变位置和顺序，修复Run.split()报错"""
     number_size = FONT_SIZE_NUM[number_config["size"]] if not number_config["size_same_as_body"] else body_size
     number_font = number_config["font"]
     number_bold = number_config["bold"]
     number_pattern = re.compile(r"-?\d+\.?\d*%?")
-    
-    # 先收集所有需要保留的Run片段
     new_runs = []
     for run in para.runs:
         text = run.text
@@ -205,8 +183,6 @@ def process_number_in_para(para, body_font, body_size, number_config):
             set_run_font(run, body_font, body_size)
             new_runs.append(run)
             continue
-        
-        # 拆分文本为【普通文本】和【数字】片段
         parts = []
         last_end = 0
         for match in number_pattern.finditer(text):
@@ -217,8 +193,6 @@ def process_number_in_para(para, body_font, body_size, number_config):
             last_end = end
         if last_end < len(text):
             parts.append(("text", text[last_end:]))
-        
-        # 清空原Run文本，然后逐个添加新片段
         run.text = ""
         for part_type, part_text in parts:
             new_run = para.add_run(part_text)
@@ -227,16 +201,13 @@ def process_number_in_para(para, body_font, body_size, number_config):
             else:
                 set_en_number_font(new_run, number_font, number_size, number_bold)
             new_runs.append(new_run)
-    
-    # 清空原段落的所有Run，替换为新的Run列表
     for run in para.runs:
         run._element.getparent().remove(run._element)
     for new_run in new_runs:
         para._element.append(new_run._element)
 
-# AI功能函数
-def ai_text_handle(text, mode):
-    if not DOUBAO_KEY or not text.strip():
+def ai_text_handle(text, mode, doubao_key):
+    if not doubao_key or not text.strip():
         return text
     prompt_map = {
         "润色": "润色文本，保留原意、结构、换行，仅输出结果",
@@ -248,63 +219,53 @@ def ai_text_handle(text, mode):
         resp = requests.post(DOUBAO_URL, json={
             "model": DOUBAO_MODEL,
             "messages": [{"role": "user", "content": f"{prompt_map[mode]}\n原文：{text}"}]
-        }, headers={"Authorization": f"Bearer {DOUBAO_KEY}"}, timeout=30)
+        }, headers={"Authorization": f"Bearer {doubao_key}"}, timeout=30)
         resp.raise_for_status()
         return resp.json()["choices"][0]["message"]["content"]
     except:
         return text
 
-# 文档处理主函数
-def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_regex, force_style, keep_spacing, clear_blank, max_blank, fix_punctuation, fix_text):
+def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_regex, force_style, keep_spacing, clear_blank, max_blank, fix_punctuation, fix_text, doubao_key):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
         tmp.write(uploaded_file.getvalue())
         tmp_path = tmp.name
-    
     try:
         doc = docx.Document(tmp_path)
         stats = {"一级标题": 0, "二级标题": 0, "三级标题": 0, "正文": 0, "表格": 0, "图片": 0}
-
         for para in doc.paragraphs:
             try:
                 stats["图片"] += len(para._element.findall('.//w:drawing', {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}))
             except:
                 pass
-
         last_title = None
         for para in doc.paragraphs:
             if is_protected_para(para):
                 for run in para.runs:
                     set_run_font(run, config["正文"]["font"], FONT_SIZE_NUM[config["正文"]["size"]])
                 continue
-            
             text = para.text.strip()
             if not text:
                 continue
-            
             level = get_title_level(para, enable_title_regex, last_title)
             stats[level] += 1
             if level in ["一级标题", "二级标题", "三级标题"]:
                 last_title = level
-
             processed_text = para.text
             if ai_mode != "不使用AI":
-                processed_text = ai_text_handle(processed_text, ai_mode)
+                processed_text = ai_text_handle(processed_text, ai_mode, doubao_key)
             if fix_punctuation:
-                processed_text = ai_text_handle(processed_text, "标点修正")
+                processed_text = ai_text_handle(processed_text, "标点修正", doubao_key)
             if fix_text:
-                processed_text = ai_text_handle(processed_text, "错别字修正")
+                processed_text = ai_text_handle(processed_text, "错别字修正", doubao_key)
             if processed_text != para.text:
                 para.text = processed_text
-
             cfg = config[level]
             font_size = FONT_SIZE_NUM[cfg["size"]]
-
             if force_style:
                 try:
                     para.style = level
                 except:
                     pass
-
             try:
                 if cfg["align"] != "不修改":
                     para.alignment = ALIGN_MAP[cfg["align"]]
@@ -322,13 +283,11 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
                 para.paragraph_format.keep_with_next = False
             except:
                 pass
-
             if level == "正文" and number_config["enable"]:
                 process_number_in_para(para, cfg["font"], font_size, number_config)
             else:
                 for run in para.runs:
                     set_run_font(run, cfg["font"], font_size, cfg["bold"])
-
         for table in doc.tables:
             stats["表格"] += 1
             cfg = config["表格"]
@@ -359,7 +318,6 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
                             pass
                         for run in para.runs:
                             set_run_font(run, cfg["font"], font_size, cfg["bold"])
-
         if clear_blank:
             paragraphs = list(doc.paragraphs)
             blank_count = 0
@@ -376,14 +334,11 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
                         p.getparent().remove(p)
                 else:
                     blank_count = 0
-
         output_path = tempfile.mktemp(suffix=".docx")
         doc.save(output_path)
         with open(output_path, "rb") as f:
             file_bytes = f.read()
-        
         return file_bytes, stats
-    
     except Exception as e:
         st.error(f"文档处理失败：{str(e)}")
         return None, None
@@ -396,28 +351,26 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
 # ====================== 页面主逻辑 ======================
 def main():
     st.set_page_config(page_title="文式通 - Word格式智能处理系统", layout="wide")
-    
     if "current_config" not in st.session_state:
         st.session_state.current_config = GENERAL_TPL["默认格式"]
     if "template_version" not in st.session_state:
         st.session_state.template_version = 0
-    
+    if "doubao_api_key" not in st.session_state:
+        st.session_state.doubao_api_key = st.secrets.get("DOUBAO_API_KEY", "")
+
     st.title("📄 文式通 - Word格式智能处理系统")
     st.warning("⚠️ 重要声明：此工具仅能减少复杂的格式调整工作量，处理完成后仍需您手动与原文进行对比核对，确保内容与格式无误。")
     st.markdown("✅ 100%保留图片/目录/原排版 | ✅ 高校论文格式一键适配 | ✅ 标点规范/错别字修正 | ✅ 全国大学生计算机设计大赛参赛作品")
 
     st.subheader("📋 一键套用标准格式模板")
     tpl_type = st.radio("模板类型", ["通用办公模板", "高校毕业论文模板", "党政公文模板"], horizontal=True)
-    
     if tpl_type == "通用办公模板":
         tpl_dict = GENERAL_TPL
     elif tpl_type == "高校毕业论文模板":
         tpl_dict = UNIVERSITY_TPL
     else:
         tpl_dict = OFFICIAL_TPL
-    
     tpl_name = st.selectbox("选择目标格式", list(tpl_dict.keys()), index=0)
-    
     target_config = tpl_dict[tpl_name]
     if st.session_state.current_config != target_config:
         st.session_state.current_config = target_config
@@ -428,7 +381,6 @@ def main():
     with st.sidebar:
         st.header("🎨 详细格式设置")
         cfg = st.session_state.current_config
-
         if st.button("🔄 强制重置格式参数", use_container_width=True):
             st.session_state.current_config = GENERAL_TPL["默认格式"]
             st.session_state.template_version += 1
@@ -448,13 +400,14 @@ def main():
 
         st.divider()
         st.subheader("🔤 文本优化设置")
+        st.text_input("豆包API密钥", type="password", key="doubao_api_key", placeholder="请输入你的豆包API密钥")
+        DOUBAO_KEY = st.session_state.get("doubao_api_key", "") or st.secrets.get("DOUBAO_API_KEY", "")
         if not DOUBAO_KEY:
             st.info("ℹ️ 填写豆包API密钥即可启用以下功能")
         fix_punctuation = st.checkbox("启用中英文标点规范修正", value=False, disabled=not DOUBAO_KEY)
         fix_text = st.checkbox("启用错别字修正+语句流畅度优化", value=False, disabled=not DOUBAO_KEY)
-        if not DOUBAO_KEY:
-            ai_mode = "不使用AI"
-        else:
+        ai_mode = "不使用AI"
+        if DOUBAO_KEY:
             ai_mode = st.radio("AI文本处理", ["不使用AI", "润色", "降重"], horizontal=True)
 
         def create_format_block(title, level):
@@ -462,57 +415,25 @@ def main():
             st.subheader(title)
             item = cfg[level]
             version = st.session_state.template_version
-            
             font_index = FONT_LIST.index(item["font"]) if item["font"] in FONT_LIST else 0
-            item["font"] = st.selectbox(
-                "字体", 
-                FONT_LIST, 
-                key=f"{level}_font_{version}", 
-                index=font_index
-            )
-            
+            item["font"] = st.selectbox("字体", FONT_LIST, key=f"{level}_font_{version}", index=font_index)
             size_index = FONT_SIZE_LIST.index(item["size"]) if item["size"] in FONT_SIZE_LIST else 0
-            item["size"] = st.selectbox(
-                "字号", 
-                FONT_SIZE_LIST, 
-                key=f"{level}_size_{version}", 
-                index=size_index
-            )
-            
-            item["bold"] = st.checkbox(
-                "加粗", 
-                value=item["bold"], 
-                key=f"{level}_bold_{version}"
-            )
-            
+            item["size"] = st.selectbox("字号", FONT_SIZE_LIST, key=f"{level}_size_{version}", index=size_index)
+            item["bold"] = st.checkbox("加粗", value=item["bold"], key=f"{level}_bold_{version}")
             align_index = ALIGN_LIST.index(item["align"]) if item["align"] in ALIGN_LIST else 0
-            item["align"] = st.selectbox(
-                "对齐方式", 
-                ALIGN_LIST, 
-                key=f"{level}_align_{version}", 
-                index=align_index
-            )
-            
+            item["align"] = st.selectbox("对齐方式", ALIGN_LIST, key=f"{level}_align_{version}", index=align_index)
             line_type_index = LINE_TYPE_LIST.index(item["line_type"]) if item["line_type"] in LINE_TYPE_LIST else 0
-            new_line_type = st.selectbox(
-                "行距类型", 
-                LINE_TYPE_LIST, 
-                key=f"{level}_line_type_{version}", 
-                index=line_type_index
-            )
-            
+            new_line_type = st.selectbox("行距类型", LINE_TYPE_LIST, key=f"{level}_line_type_{version}", index=line_type_index)
             if new_line_type != item["line_type"]:
                 item["line_type"] = new_line_type
                 item["line_value"] = LINE_RULE[new_line_type]["default"]
                 st.session_state.current_config[level] = item
                 st.rerun()
-            
             line_rule = LINE_RULE[item["line_type"]]
             current_value = float(item["line_value"])
             if not (line_rule["min"] <= current_value <= line_rule["max"]):
                 current_value = line_rule["default"]
                 item["line_value"] = current_value
-            
             item["line_value"] = st.number_input(
                 line_rule["label"],
                 min_value=float(line_rule["min"]),
@@ -522,16 +443,8 @@ def main():
                 key=f"{level}_line_value_{version}",
                 disabled=line_rule["min"] == line_rule["max"]
             )
-            
             if "indent" in item:
-                item["indent"] = st.number_input(
-                    "首行缩进(字符)", 
-                    min_value=0, 
-                    max_value=4, 
-                    value=item["indent"], 
-                    key=f"{level}_indent_{version}"
-                )
-            
+                item["indent"] = st.number_input("首行缩进(字符)", min_value=0, max_value=4, value=item["indent"], key=f"{level}_indent_{version}")
             st.session_state.current_config[level] = item
             return item
 
@@ -555,29 +468,16 @@ def main():
             number_config["bold"] = st.checkbox("数字加粗", value=False, key=f"number_bold_{st.session_state.template_version}")
 
     uploaded_file = st.file_uploader("📤 上传Word文档（仅支持.docx格式）", type="docx")
-    
     if uploaded_file:
         st.success("✅ 文档上传成功！")
-        
         if st.button("🚀 开始处理文档", type="primary", use_container_width=True):
             progress_bar = st.progress(0, text="文档处理准备中...")
             try:
                 progress_bar.progress(10, text="正在解析文档...")
                 file_bytes, stats = process_doc(
-                    uploaded_file, 
-                    cfg, 
-                    number_config, 
-                    ai_mode, 
-                    enable_title_regex, 
-                    force_style, 
-                    keep_spacing, 
-                    clear_blank, 
-                    max_blank,
-                    fix_punctuation,
-                    fix_text
+                    uploaded_file, cfg, number_config, ai_mode, enable_title_regex, force_style, keep_spacing, clear_blank, max_blank, fix_punctuation, fix_text, DOUBAO_KEY
                 )
                 progress_bar.progress(80, text="文档处理完成，正在生成下载文件...")
-                
                 if file_bytes and stats:
                     progress_bar.progress(100, text="处理完成！")
                     st.subheader("📋 文档内容分类识别结果")
@@ -588,9 +488,7 @@ def main():
                     cols[3].metric("正文段落", stats["正文"])
                     cols[4].metric("表格数量", stats["表格"])
                     cols[5].metric("图片数量", stats["图片"])
-                    
                     st.info("ℹ️ 再次提醒：此工具仅能减少格式调整工作量，下载后请务必与原文档进行对比核对，确认内容与格式无误。")
-                    
                     st.download_button(
                         label="📥 下载处理完成的文档",
                         data=file_bytes,

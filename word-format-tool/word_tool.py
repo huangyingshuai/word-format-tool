@@ -8,8 +8,33 @@ import os
 import tempfile
 import re
 
+# ====================== 页面全局配置（必须放在最前面）======================
+st.set_page_config(page_title="文式通 - Word格式智能处理系统", layout="wide")
+
+# ====================== Streamlit状态管理（修复乱码+模板不同步核心）======================
+if "format_config" not in st.session_state:
+    st.session_state.format_config = {
+        "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 2},
+        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1, "indent": 0}
+    }
+# 行距类型对应的默认值（修复乱码核心）
+LINE_TYPE_DEFAULT = {
+    "单倍行距": 1,
+    "1.5倍行距": 1.5,
+    "2倍行距": 2,
+    "多倍行距": 1.5,
+    "固定值": 20
+}
+# 行距类型对应的数值范围
+LINE_TYPE_RANGE = {
+    "多倍行距": {"min": 0.5, "max": 5.0, "step": 0.1},
+    "固定值": {"min": 6, "max": 100, "step": 1}
+}
+
 # ====================== 全局配置（部署适配版）======================
-# 豆包API配置（部署时在Streamlit Cloud的Secrets里填写，本地开发不填也能正常用格式功能）
 try:
     DOUBAO_API_KEY = st.secrets["DOUBAO_API_KEY"]
     DOUBAO_MODEL = st.secrets.get("DOUBAO_MODEL", "ep-20250628104918-7rqxd")
@@ -18,7 +43,7 @@ except:
     DOUBAO_MODEL = "ep-20250628104918-7rqxd"
 DOUBAO_API_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
 
-# ====================== 标准映射表（和WPS/Word完全一致）======================
+# ====================== 标准映射表 ======================
 FONT_MAP = {
     "宋体": "SimSun",
     "微软雅黑": "Microsoft YaHei",
@@ -52,9 +77,9 @@ FONT_SIZE_MAP = {
 }
 
 TITLE_PATTERNS = {
-    "一级标题": re.compile(r"^[一二三四五六七八九十]+、\s*[^，。？！；]{0,30}$|^第[一二三四五六七八九十]+章\s*[^，。？！；]{0,30}$|^第\d+章\s*[^，。？！；]{0,30}$"),
-    "二级标题": re.compile(r"^[（(][一二三四五六七八九十]+[）)]\s*[^，。？！；]{0,40}$|^\d+\、\s*[^，。？！；]{0,40}$|^\d+\.\s+[^，。？！；]{0,40}$"),
-    "三级标题": re.compile(r"^[（(]\d+[）)]\s*[^，。？！；]{0,50}$|^\d+\.\d+\s+[^，。？！；]{0,50}$|^\d+\.\d+\.\d+\s+[^，。？！；]{0,50}$")
+    "一级标题": re.compile(r"^[一二三四五六七八九十]+、\s*[^，。？！；]{0,40}$|^第[一二三四五六七八九十]+章\s*[^，。？！；]{0,40}$|^第\d+章\s*[^，。？！；]{0,40}$|^\d+、\s*[^，。？！；]{0,40}$"),
+    "二级标题": re.compile(r"^[（(][一二三四五六七八九十]+[）)]\s*[^，。？！；]{0,50}$|^\d+\.\s+[^，。？！；]{0,50}$|^\d+、\s*[^，。？！；]{0,50}$"),
+    "三级标题": re.compile(r"^[（(]\d+[）)]\s*[^，。？！；]{0,60}$|^\d+\.\d+\s+[^，。？！；]{0,60}$|^\d+\.\d+\.\d+\s+[^，。？！；]{0,60}$|^\d+\）\s*[^，。？！；]{0,60}$")
 }
 
 LINE_SPACING_TYPE_MAP = {
@@ -72,53 +97,69 @@ STYLE_NAME_MAP = {
     "正文": ["正文", "Normal"]
 }
 
-# 标准格式模板库
-FORMAT_TEMPLATES = {
+# ====================== 模板库 ======================
+GENERAL_TEMPLATES = {
     "默认格式": {
-        "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5},
-        "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5},
-        "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5},
+        "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
         "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 2},
-        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1}
-    },
-    "党政公文标准格式": {
-        "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5},
-        "二级标题": {"font": "楷体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5},
-        "三级标题": {"font": "仿宋", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5},
-        "正文": {"font": "仿宋", "size": "三号", "bold": False, "align": "两端对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 2},
-        "表格": {"font": "仿宋", "size": "小三", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1}
-    },
-    "本科毕业论文格式": {
-        "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5},
-        "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5},
-        "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5},
-        "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 2},
-        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1}
+        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1, "indent": 0}
     }
 }
 
-# 高校毕业论文模板库（参赛核心亮点）
 UNIVERSITY_TEMPLATES = {
     "河北科技大学-本科毕业论文模板": {
-        "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5},
-        "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5},
-        "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5},
+        "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
         "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 2},
-        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1}
+        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1, "indent": 0}
+    },
+    "河北工业大学-本科毕业论文模板": {
+        "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "三级标题": {"font": "楷体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 2},
+        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1, "indent": 0}
+    },
+    "燕山大学-本科毕业论文模板": {
+        "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 20, "indent": 2},
+        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1, "indent": 0}
+    },
+    "河北大学-本科毕业论文模板": {
+        "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "三级标题": {"font": "仿宋", "size": "四号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 2},
+        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1, "indent": 0}
     },
     "国标-本科毕业论文通用模板": {
-        "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5},
-        "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5},
-        "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5},
+        "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
         "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 2},
-        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1}
+        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1, "indent": 0}
     },
+    "硕士研究生毕业论文通用模板": {
+        "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 2},
+        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1, "indent": 0}
+    }
+}
+
+OFFICIAL_TEMPLATES = {
     "党政机关公文国标GB/T 9704-2012模板": {
-        "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5},
-        "二级标题": {"font": "楷体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5},
-        "三级标题": {"font": "仿宋", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5},
+        "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "二级标题": {"font": "楷体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "三级标题": {"font": "仿宋", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
         "正文": {"font": "仿宋", "size": "三号", "bold": False, "align": "两端对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 2},
-        "表格": {"font": "仿宋", "size": "小三", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1}
+        "表格": {"font": "仿宋", "size": "小三", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1, "indent": 0}
     }
 }
 
@@ -156,7 +197,7 @@ def set_paragraph_style(para, level, doc):
             continue
     pass
 
-def is_special_page_para(para):
+def is_protected_para(para):
     if para.paragraph_format.page_break_before:
         return True
     for run in para.runs:
@@ -167,6 +208,8 @@ def is_special_page_para(para):
         if run._element.find('.//w:drawing', WORD_NS) is not None:
             return True
         if run._element.find('.//w:pict', WORD_NS) is not None:
+            return True
+        if run._element.find('.//w:fldChar', WORD_NS) is not None:
             return True
     return False
 
@@ -194,7 +237,7 @@ def set_en_run_font(run, font_name, font_size_pt, is_bold=None):
     except:
         pass
 
-def get_title_level(para, enable_regex=True):
+def get_title_level(para, enable_regex=True, last_title_level=None):
     style_name = para.style.name
     if "Heading 1" in style_name or style_name == "标题 1" or "TOC 1" in style_name:
         return "一级标题"
@@ -207,9 +250,26 @@ def get_title_level(para, enable_regex=True):
         return "正文"
     
     text = para.text.strip()
-    for level, pattern in TITLE_PATTERNS.items():
+    if not text:
+        return "正文"
+    
+    if len(text) < 60 and last_title_level == "一级标题":
+        for level, pattern in TITLE_PATTERNS.items():
+            if pattern.match(text):
+                return level
+    
+    if len(text) < 60 and last_title_level == "二级标题":
+        if TITLE_PATTERNS["三级标题"].match(text):
+            return "三级标题"
+        for level, pattern in TITLE_PATTERNS.items():
+            if pattern.match(text):
+                return level
+    
+    for level in ["一级标题", "二级标题", "三级标题"]:
+        pattern = TITLE_PATTERNS[level]
         if pattern.match(text):
             return level
+    
     return "正文"
 
 def process_number_text(para, body_font, body_size_pt, number_config):
@@ -219,20 +279,22 @@ def process_number_text(para, body_font, body_size_pt, number_config):
     for run in para.runs:
         text = run.text
         if not text:
+            set_run_font(run, body_font, body_size_pt, is_bold=False)
             continue
+        
         if not number_pattern.search(text):
             set_run_font(run, body_font, body_size_pt, is_bold=False)
             continue
-        parts = number_pattern.split(text)
-        numbers = number_pattern.findall(text)
-        run.text = ""
-        for i in range(len(parts)):
-            if parts[i]:
-                new_run = para.add_run(parts[i])
-                set_run_font(new_run, body_font, body_size_pt, is_bold=False)
-            if i < len(numbers):
-                new_run = para.add_run(numbers[i])
-                set_en_run_font(new_run, number_config["font"], number_size_pt, is_bold=number_config["bold"])
+        
+        set_run_font(run, body_font, body_size_pt, is_bold=False)
+        
+        for match in number_pattern.finditer(text):
+            start_idx = match.start()
+            end_idx = match.end()
+            if start_idx > 0:
+                run = run.split(start_idx)
+            number_run = run.split(end_idx - start_idx)
+            set_en_run_font(number_run, number_config["font"], number_size_pt, is_bold=number_config["bold"])
 
 def remove_extra_blank_lines(doc, max_blank_lines=1):
     paragraphs = list(doc.paragraphs)
@@ -240,7 +302,7 @@ def remove_extra_blank_lines(doc, max_blank_lines=1):
     for i in range(len(paragraphs)-1, -1, -1):
         para = paragraphs[i]
         is_blank = not para.text.strip()
-        if is_special_page_para(para):
+        if is_protected_para(para):
             blank_count = 0
             continue
         if is_blank:
@@ -251,7 +313,55 @@ def remove_extra_blank_lines(doc, max_blank_lines=1):
         else:
             blank_count = 0
 
-# ====================== AI降重/润色核心函数 ======================
+# ====================== AI功能函数 ======================
+def ai_punctuation_correct(text):
+    if not DOUBAO_API_KEY or not text.strip():
+        return text
+    
+    prompt = f"请对以下文本进行标点符号规范修正，要求：1. 中文内容使用中文全角标点，英文/数字内容使用英文半角标点；2. 修正错误的标点符号，统一标点规范；3. 完全保留原文的内容、语序、换行符；4. 仅输出修正后的文本，不要额外解释。\n原文：{text}"
+    
+    headers = {
+        "Authorization": f"Bearer {DOUBAO_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": DOUBAO_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.3,
+        "max_tokens": 4096
+    }
+    
+    try:
+        response = requests.post(DOUBAO_API_URL, json=data, headers=headers, timeout=30)
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"]
+    except:
+        return text
+
+def ai_text_optimize(text):
+    if not DOUBAO_API_KEY or not text.strip():
+        return text
+    
+    prompt = f"请对以下文本进行优化，要求：1. 修正所有错别字、语病、不通顺的语句；2. 优化语句流畅度，让表达更通顺自然；3. 完全保留原文的核心意思、专业术语、数字、段落结构、换行符；4. 仅输出优化后的文本，不要额外解释。\n原文：{text}"
+    
+    headers = {
+        "Authorization": f"Bearer {DOUBAO_API_KEY}",
+        "Content-Type": "application/json"
+    }
+    data = {
+        "model": DOUBAO_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.5,
+        "max_tokens": 4096
+    }
+    
+    try:
+        response = requests.post(DOUBAO_API_URL, json=data, headers=headers, timeout=30)
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"]
+    except:
+        return text
+
 def ai_process_text(text, mode="润色"):
     if not DOUBAO_API_KEY or not text.strip():
         return text
@@ -273,12 +383,23 @@ def ai_process_text(text, mode="润色"):
         response = requests.post(DOUBAO_API_URL, json=data, headers=headers, timeout=30)
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
-    except Exception as e:
-        st.warning(f"AI处理失败：{str(e)}，将保留原文")
+    except:
         return text
 
 # ====================== 文档处理主函数 ======================
-def process_document(uploaded_file, format_config, number_config, ai_mode, enable_title_regex, force_style, keep_original_spacing, remove_blank_lines, max_blank_lines):
+def process_document(
+    uploaded_file, 
+    format_config, 
+    number_config, 
+    ai_mode, 
+    enable_title_regex, 
+    force_style, 
+    keep_original_spacing, 
+    remove_blank_lines, 
+    max_blank_lines,
+    enable_punctuation_correct,
+    enable_text_optimize
+):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
         tmp.write(uploaded_file.getvalue())
         tmp_path = tmp.name
@@ -293,22 +414,32 @@ def process_document(uploaded_file, format_config, number_config, ai_mode, enabl
             except:
                 pass
 
+        last_title_level = None
         for para in doc.paragraphs:
-            if is_special_page_para(para):
+            if is_protected_para(para):
+                for run in para.runs:
+                    set_run_font(run, format_config["正文"]["font"], FONT_SIZE_MAP[format_config["正文"]["size"]])
                 continue
             
             is_blank = not para.text.strip()
             if is_blank:
                 continue
             
-            level = get_title_level(para, enable_title_regex)
+            level = get_title_level(para, enable_title_regex, last_title_level)
             stats[level] += 1
+            if level in ["一级标题", "二级标题", "三级标题"]:
+                last_title_level = level
 
             processed_text = para.text
             if ai_mode != "不使用AI" and "TOC" not in para.style.name:
-                processed_text = ai_process_text(para.text, ai_mode)
-                if processed_text != para.text:
-                    para.text = processed_text
+                processed_text = ai_process_text(processed_text, ai_mode)
+            if enable_punctuation_correct and "TOC" not in para.style.name:
+                processed_text = ai_punctuation_correct(processed_text)
+            if enable_text_optimize and "TOC" not in para.style.name:
+                processed_text = ai_text_optimize(processed_text)
+            
+            if processed_text != para.text:
+                para.text = processed_text
 
             config = format_config[level]
             font_size_pt = FONT_SIZE_MAP[config["size"]]
@@ -320,17 +451,17 @@ def process_document(uploaded_file, format_config, number_config, ai_mode, enabl
                 if config["align"] is not None:
                     para.alignment = config["align"]
                 para.paragraph_format.line_spacing_rule = config["line_spacing_rule"]
-                if config["line_spacing_rule"] == WD_LINE_SPACING.MULTIPLE:
-                    para.paragraph_format.line_spacing = config["line_spacing_value"]
-                elif config["line_spacing_rule"] == WD_LINE_SPACING.EXACTLY:
-                    para.paragraph_format.line_spacing = Pt(config["line_spacing_value"])
+                if config["line_type"] == "多倍行距":
+                    para.paragraph_format.line_spacing = config["line_value"]
+                elif config["line_type"] == "固定值":
+                    para.paragraph_format.line_spacing = Pt(config["line_value"])
                 
                 if not keep_original_spacing:
                     para.paragraph_format.space_before = Pt(0)
                     para.paragraph_format.space_after = Pt(0)
                 
-                if level == "正文" and config["first_line_indent"] > 0:
-                    para.paragraph_format.first_line_indent = Cm(config["first_line_indent"] * 0.35)
+                if level == "正文" and config["indent"] > 0:
+                    para.paragraph_format.first_line_indent = Cm(config["indent"] * 0.35)
                 
                 para.paragraph_format.page_break_before = False
                 para.paragraph_format.keep_with_next = False
@@ -350,20 +481,28 @@ def process_document(uploaded_file, format_config, number_config, ai_mode, enabl
             for row in table.rows:
                 for cell in row.cells:
                     for para in cell.paragraphs:
+                        if is_protected_para(para):
+                            for run in para.runs:
+                                set_run_font(run, config["font"], font_size_pt, config["bold"])
+                            continue
+                        
                         if not para.text.strip():
                             continue
+                        
                         if force_style:
                             set_paragraph_style(para, "正文", doc)
+                        
                         try:
                             if config["align"] is not None:
                                 para.alignment = config["align"]
                             para.paragraph_format.line_spacing_rule = config["line_spacing_rule"]
-                            if config["line_spacing_rule"] == WD_LINE_SPACING.MULTIPLE:
-                                para.paragraph_format.line_spacing = config["line_spacing_value"]
-                            elif config["line_spacing_rule"] == WD_LINE_SPACING.EXACTLY:
-                                para.paragraph_format.line_spacing = Pt(config["line_spacing_value"])
+                            if config["line_type"] == "多倍行距":
+                                para.paragraph_format.line_spacing = config["line_value"]
+                            elif config["line_type"] == "固定值":
+                                para.paragraph_format.line_spacing = Pt(config["line_value"])
                         except:
                             pass
+                        
                         for run in para.runs:
                             set_run_font(run, config["font"], font_size_pt, config["bold"])
 
@@ -386,58 +525,69 @@ def process_document(uploaded_file, format_config, number_config, ai_mode, enabl
         if 'output_path' in locals() and os.path.exists(output_path):
             os.unlink(output_path)
 
-# ====================== Streamlit网页界面 ======================
+# ====================== Streamlit网页界面（彻底修复固定值乱码）======================
 def main():
-    st.set_page_config(page_title="Word格式智能调整工具", layout="wide")
-    st.title("📄 Word格式智能调整工具")
-    
+    st.title("📄 文式通 - Word格式智能处理系统")
     st.warning("⚠️ 重要声明：此工具仅能减少复杂的格式调整工作量，处理完成后仍需您手动与原文进行对比核对，确保内容与格式无误。")
-    
-    st.markdown("✅ 100%保留图片/目录/原格式 | ✅ 高校论文格式一键适配 | ✅ 办公自动化格式处理 | ✅ 全国大学生计算机设计大赛参赛作品")
+    st.markdown("✅ 100%保留图片/目录/原排版 | ✅ 高校论文格式一键适配 | ✅ 标点规范/错别字修正 | ✅ 全国大学生计算机设计大赛参赛作品")
 
+    # 模板选择模块
     st.subheader("📋 一键套用标准格式模板")
     template_type = st.radio("模板类型", ["通用办公模板", "高校毕业论文模板", "党政公文模板"], horizontal=True)
 
     if template_type == "通用办公模板":
-        template_list = list(FORMAT_TEMPLATES.keys())
-        template_dict = FORMAT_TEMPLATES
+        template_dict = GENERAL_TEMPLATES
     elif template_type == "高校毕业论文模板":
-        template_list = list(UNIVERSITY_TEMPLATES.keys())
         template_dict = UNIVERSITY_TEMPLATES
     else:
-        template_list = ["党政机关公文国标GB/T 9704-2012模板"]
-        template_dict = UNIVERSITY_TEMPLATES
+        template_dict = OFFICIAL_TEMPLATES
 
-    template_name = st.selectbox("选择目标格式", template_list, index=0)
+    template_name = st.selectbox("选择目标格式", list(template_dict.keys()), index=0)
     selected_template = template_dict[template_name]
 
+    if st.button("📌 应用选中的模板", use_container_width=True):
+        st.session_state.format_config = selected_template
+        st.success(f"已成功应用【{template_name}】，侧边栏格式参数已同步更新！")
+
+    # 侧边栏格式设置
     with st.sidebar:
         st.header("🎨 详细格式设置")
-        format_config = {}
+        format_config = st.session_state.format_config
 
-        st.subheader("🏷️ 样式统一设置")
-        force_style = st.checkbox("强制统一套用Word原生样式", value=True, help="开启后，识别的标题自动套用「标题1/2/3」样式，正文套用「正文」样式，Word导航窗格可直接识别，目录可正常更新")
-        enable_title_regex = st.checkbox("启用正则智能识别标题", value=True, help="关闭后仅识别Word自带的标题样式，彻底解决正文误判为标题的问题")
+        st.subheader("🏷️ 核心设置")
+        force_style = st.checkbox("强制统一套用Word原生样式", value=True, help="开启后，标题自动套用「标题1/2/3」样式，正文套用「正文」样式，Word导航窗格可直接识别")
+        enable_title_regex = st.checkbox("启用上下文智能标题识别", value=True, help="开启后，结合上下文推理标题层级，解决三级标题识别不清的问题")
+        keep_original_spacing = st.checkbox("保留原段落段前/段后距", value=True, help="默认开启，彻底解决空行空页、排版错乱问题")
 
         st.divider()
-        st.subheader("📄 空行空页修复设置")
-        keep_original_spacing = st.checkbox("保留原段落段前/段后距", value=True, help="默认开启，彻底解决段落间距变大导致的空行空页问题")
-        remove_blank_lines = st.checkbox("清除多余空行", value=False, help="开启后自动清理文档中连续的多余空行")
+        st.subheader("📄 空行清理设置")
+        remove_blank_lines = st.checkbox("清除多余空行", value=False)
         if remove_blank_lines:
-            max_blank_lines = st.slider("最多保留连续空行数", min_value=0, max_value=2, value=1, help="0=清除所有空行，1=只保留单个空行")
+            max_blank_lines = st.slider("最多保留连续空行数", min_value=0, max_value=2, value=1)
         else:
             max_blank_lines = 1
 
-        def create_format_config(title, key_prefix, default_config):
+        st.divider()
+        st.subheader("🔤 文本优化设置（需填写API密钥）")
+        if not DOUBAO_API_KEY:
+            st.info("ℹ️ 填写豆包API密钥即可启用以下功能")
+        enable_punctuation_correct = st.checkbox("启用中英文标点规范修正", value=False, disabled=not DOUBAO_API_KEY)
+        enable_text_optimize = st.checkbox("启用错别字修正+语句流畅度优化", value=False, disabled=not DOUBAO_API_KEY)
+
+        # 【修复固定值乱码核心】重构行距设置逻辑
+        def create_format_config(title, key_prefix, level):
             st.divider()
             st.subheader(title)
-            config = {}
-            config["font"] = st.selectbox("字体", list(FONT_MAP.keys()), key=f"{key_prefix}_font", index=list(FONT_MAP.keys()).index(default_config["font"]))
-            config["size"] = st.selectbox("字号", list(FONT_SIZE_MAP.keys()), key=f"{key_prefix}_size", index=list(FONT_SIZE_MAP.keys()).index(default_config["size"]))
-            config["bold"] = st.checkbox("加粗", value=default_config["bold"], key=f"{key_prefix}_bold")
+            config = format_config[level]
+            
+            # 字体、字号、加粗、对齐方式
+            config["font"] = st.selectbox("字体", list(FONT_MAP.keys()), key=f"{key_prefix}_font", index=list(FONT_MAP.keys()).index(config["font"]))
+            config["size"] = st.selectbox("字号", list(FONT_SIZE_MAP.keys()), key=f"{key_prefix}_size", index=list(FONT_SIZE_MAP.keys()).index(config["size"]))
+            config["bold"] = st.checkbox("加粗", value=config["bold"], key=f"{key_prefix}_bold")
+            
             align_options = ["不修改", "左对齐", "居中", "两端对齐", "右对齐"]
-            default_align = default_config["align"]
-            config["align"] = st.selectbox("对齐方式", align_options, key=f"{key_prefix}_align", index=align_options.index(default_align))
+            current_align = [k for k, v in {"不修改": None, "左对齐": WD_ALIGN_PARAGRAPH.LEFT, "居中": WD_ALIGN_PARAGRAPH.CENTER, "两端对齐": WD_ALIGN_PARAGRAPH.JUSTIFY, "右对齐": WD_ALIGN_PARAGRAPH.RIGHT}.items() if v == config["align"]][0]
+            config["align"] = st.selectbox("对齐方式", align_options, key=f"{key_prefix}_align", index=align_options.index(current_align))
             align_map = {
                 "不修改": None,
                 "左对齐": WD_ALIGN_PARAGRAPH.LEFT,
@@ -447,31 +597,52 @@ def main():
             }
             config["align"] = align_map[config["align"]]
             
-            default_line_type = default_config["line_type"]
-            config["line_spacing_type"] = st.selectbox("行距类型", list(LINE_SPACING_TYPE_MAP.keys()), key=f"{key_prefix}_line_type", index=list(LINE_SPACING_TYPE_MAP.keys()).index(default_line_type))
-            config["line_spacing_rule"] = LINE_SPACING_TYPE_MAP[config["line_spacing_type"]]
+            # 【修复乱码核心】行距类型动态适配
+            line_type_list = list(LINE_SPACING_TYPE_MAP.keys())
+            config["line_type"] = st.selectbox("行距类型", line_type_list, key=f"{key_prefix}_line_type", index=line_type_list.index(config["line_type"]))
+            config["line_spacing_rule"] = LINE_SPACING_TYPE_MAP[config["line_type"]]
             
-            default_line_value = default_config["line_value"]
-            if config["line_spacing_type"] == "多倍行距":
-                config["line_spacing_value"] = st.number_input("行距倍数", min_value=0.5, max_value=5.0, value=default_line_value, step=0.1, key=f"{key_prefix}_line_value")
-            elif config["line_spacing_type"] == "固定值":
-                config["line_spacing_value"] = st.number_input("固定值(磅)", min_value=6, max_value=100, value=default_line_value, step=1, key=f"{key_prefix}_line_value")
+            # 动态显示行距数值输入框，切换类型自动重置默认值
+            if config["line_type"] in ["多倍行距", "固定值"]:
+                # 切换类型时，自动更新默认值
+                if config["line_value"] == LINE_TYPE_DEFAULT.get(config["line_type"], config["line_value"]):
+                    config["line_value"] = LINE_TYPE_DEFAULT[config["line_type"]]
+                # 动态设置输入框参数
+                range_config = LINE_TYPE_RANGE[config["line_type"]]
+                config["line_value"] = st.number_input(
+                    "行距数值" if config["line_type"] == "多倍行距" else "固定值(磅)",
+                    min_value=range_config["min"],
+                    max_value=range_config["max"],
+                    value=float(config["line_value"]),
+                    step=range_config["step"],
+                    key=f"{key_prefix}_line_value"
+                )
             else:
-                config["line_spacing_value"] = 1
+                # 固定倍数行距，禁用输入框
+                config["line_value"] = LINE_TYPE_DEFAULT[config["line_type"]]
+                st.number_input(
+                    "行距倍数",
+                    value=config["line_value"],
+                    disabled=True,
+                    key=f"{key_prefix}_line_value_disabled"
+                )
             
-            if "indent" in default_config:
-                config["first_line_indent"] = st.number_input("首行缩进(字符)", min_value=0, max_value=4, value=default_config["indent"], key=f"{key_prefix}_indent")
-            else:
-                config["first_line_indent"] = 0
+            # 首行缩进
+            if "indent" in config:
+                config["indent"] = st.number_input("首行缩进(字符)", min_value=0, max_value=4, value=config["indent"], key=f"{key_prefix}_indent")
             
+            # 更新session_state
+            st.session_state.format_config[level] = config
             return config
 
-        format_config["一级标题"] = create_format_config("📌 一级标题", "h1", selected_template["一级标题"])
-        format_config["二级标题"] = create_format_config("📌 二级标题", "h2", selected_template["二级标题"])
-        format_config["三级标题"] = create_format_config("📌 三级标题", "h3", selected_template["三级标题"])
-        format_config["正文"] = create_format_config("📝 正文内容", "body", selected_template["正文"])
-        format_config["表格"] = create_format_config("📊 表格内容", "table", selected_template["表格"])
+        # 各级格式设置
+        format_config["一级标题"] = create_format_config("📌 一级标题", "h1", "一级标题")
+        format_config["二级标题"] = create_format_config("📌 二级标题", "h2", "二级标题")
+        format_config["三级标题"] = create_format_config("📌 三级标题", "h3", "三级标题")
+        format_config["正文"] = create_format_config("📝 正文内容", "body", "正文")
+        format_config["表格"] = create_format_config("📊 表格内容", "table", "表格")
 
+        # 正文数字格式设置
         st.divider()
         st.subheader("🔢 正文数字格式设置")
         number_config = {}
@@ -485,17 +656,20 @@ def main():
                 number_config["size"] = "小四"
             number_config["bold"] = st.checkbox("数字加粗", value=False)
 
+    # 主界面上传&处理
     uploaded_file = st.file_uploader("📤 上传Word文档（仅支持.docx格式）", type="docx")
     
     if uploaded_file:
         st.success("✅ 文档上传成功！")
         
+        # AI功能设置
         if not DOUBAO_API_KEY:
-            st.info("ℹ️ 填写豆包API密钥即可启用AI降重/润色功能，不填写可正常使用所有格式调整功能")
+            st.info("ℹ️ 填写豆包API密钥即可启用AI润色/降重功能，不填写可正常使用所有格式调整功能")
             ai_mode = "不使用AI"
         else:
             ai_mode = st.radio("🤖 AI文本处理", ["不使用AI", "润色", "降重"], horizontal=True)
         
+        # 处理按钮
         if st.button("🚀 开始处理文档", type="primary", use_container_width=True):
             progress_bar = st.progress(0, text="文档处理准备中...")
             try:
@@ -509,7 +683,9 @@ def main():
                     force_style, 
                     keep_original_spacing, 
                     remove_blank_lines, 
-                    max_blank_lines
+                    max_blank_lines,
+                    enable_punctuation_correct,
+                    enable_text_optimize
                 )
                 progress_bar.progress(80, text="文档处理完成，正在生成下载文件...")
                 
@@ -540,6 +716,7 @@ def main():
             finally:
                 progress_bar.empty()
 
+    # 底部版权声明
     st.divider()
     with st.expander("📖 关于本作品 | 开源版权声明"):
         st.markdown("""

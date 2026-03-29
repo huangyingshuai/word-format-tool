@@ -186,29 +186,53 @@ def get_title_level(para, enable_regex, last_title_level):
             return level
     return "正文"
 
+# ====================== 【修复核心】数字处理函数（不再调用Run.split()）======================
 def process_number_in_para(para, body_font, body_size, number_config):
-    """处理数字，绝对不改变位置和顺序"""
+    """处理数字，绝对不改变位置和顺序，修复Run.split()报错"""
     number_size = FONT_SIZE_NUM[number_config["size"]] if not number_config["size_same_as_body"] else body_size
     number_font = number_config["font"]
     number_bold = number_config["bold"]
     number_pattern = re.compile(r"-?\d+\.?\d*%?")
     
+    # 先收集所有需要保留的Run片段
+    new_runs = []
     for run in para.runs:
         text = run.text
         if not text:
-            set_run_font(run, body_font, body_size)
+            new_runs.append(run)
             continue
         if not number_pattern.search(text):
             set_run_font(run, body_font, body_size)
+            new_runs.append(run)
             continue
         
-        set_run_font(run, body_font, body_size)
+        # 拆分文本为【普通文本】和【数字】片段
+        parts = []
+        last_end = 0
         for match in number_pattern.finditer(text):
             start, end = match.span()
-            if start > 0:
-                run = run.split(start)
-            number_run = run.split(end - start)
-            set_en_number_font(number_run, number_font, number_size, number_bold)
+            if start > last_end:
+                parts.append(("text", text[last_end:start]))
+            parts.append(("number", text[start:end]))
+            last_end = end
+        if last_end < len(text):
+            parts.append(("text", text[last_end:]))
+        
+        # 清空原Run文本，然后逐个添加新片段
+        run.text = ""
+        for part_type, part_text in parts:
+            new_run = para.add_run(part_text)
+            if part_type == "text":
+                set_run_font(new_run, body_font, body_size)
+            else:
+                set_en_number_font(new_run, number_font, number_size, number_bold)
+            new_runs.append(new_run)
+    
+    # 清空原段落的所有Run，替换为新的Run列表
+    for run in para.runs:
+        run._element.getparent().remove(run._element)
+    for new_run in new_runs:
+        para._element.append(new_run._element)
 
 # AI功能函数
 def ai_text_handle(text, mode):

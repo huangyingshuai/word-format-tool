@@ -430,6 +430,11 @@ def main():
     target_config = None
     tpl_name = "默认通用格式"
 
+    # 模板同步函数（仅修复用）
+    def sync_template(config):
+        st.session_state.current_config = config
+        st.session_state.template_version += 1
+
     # 高校毕业论文标签页
     with tab1:
         tpl_name = st.selectbox(
@@ -439,6 +444,7 @@ def main():
             key="uni_tpl"
         )
         target_config = UNIVERSITY_TPL[tpl_name]
+        sync_template(target_config)
         st.caption("已包含：河科大、河工大、燕山大学、华北电力、河北农大、石铁大、东北大学等")
 
     # 通用办公标签页
@@ -450,6 +456,7 @@ def main():
             key="gen_tpl"
         )
         target_config = GENERAL_TPL[tpl_name]
+        sync_template(target_config)
 
     # 党政公文标签页
     with tab3:
@@ -460,6 +467,7 @@ def main():
             key="off_tpl"
         )
         target_config = OFFICIAL_TPL[tpl_name]
+        sync_template(target_config)
 
     # ✅ 统一按钮：重置为默认格式
     col1, col2 = st.columns([1, 3])

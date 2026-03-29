@@ -9,9 +9,6 @@ import os
 import re
 
 # ====================== 全局常量定义 ======================
-# 【在这里替换成你自己的降重智能体链接！】
-YOUR_DOUBAO_AGENT_URL = "https://www.doubao.com/agent/这里替换成你的降重智能体链接"
-
 ALIGN_MAP = {
     "左对齐": WD_ALIGN_PARAGRAPH.LEFT,
     "居中": WD_ALIGN_PARAGRAPH.CENTER,
@@ -356,7 +353,7 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
         if 'output_path' in locals() and os.path.exists(output_path):
             os.unlink(output_path)
 
-# ====================== 页面主逻辑（含降重智能体直达） ======================
+# ====================== 页面主逻辑 ======================
 def main():
     st.set_page_config(page_title="文式通 - Word格式智能处理系统", layout="wide")
     if "current_config" not in st.session_state:
@@ -369,12 +366,6 @@ def main():
     st.title("📄 文式通 - Word格式智能处理系统")
     st.warning("⚠️ 重要声明：此工具仅能减少复杂的格式调整工作量，处理完成后仍需您手动与原文进行对比核对，确保内容与格式无误。")
     st.markdown("✅ 100%保留图片/目录/原排版 | ✅ 高校论文格式一键适配 | ✅ 专业AI降重 | ✅ 标点规范/错别字修正")
-
-    # 【主界面：一键直达你的降重智能体】
-    st.markdown("---")
-    st.subheader("⚡ 快速降重通道")
-    st.link_button("🚀 打开我的专属「降重」智能体", YOUR_DOUBAO_AGENT_URL, use_container_width=True, type="primary")
-    st.markdown("---")
 
     # 模板选择
     st.subheader("📋 一键套用标准格式模板")
@@ -412,10 +403,6 @@ def main():
 
         st.divider()
         st.subheader("🔤 AI文本优化（含专业降重）")
-        # 侧边栏也加直达按钮
-        st.link_button("🧠 打开我的降重智能体", YOUR_DOUBAO_AGENT_URL, use_container_width=True)
-        
-        # 【修复假解锁：严格校验密钥格式】
         st.text_input("豆包API密钥（火山引擎sk-开头）", type="password", key="doubao_api_key", placeholder="请输入火山引擎API密钥，格式：sk-xxxxxx")
         user_key = st.session_state.get("doubao_api_key", "")
         env_key = st.secrets.get("DOUBAO_API_KEY", "")

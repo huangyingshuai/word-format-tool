@@ -367,17 +367,25 @@ def main():
     st.warning("⚠️ 重要声明：此工具仅能减少复杂的格式调整工作量，处理完成后仍需您手动与原文进行对比核对，确保内容与格式无误。")
     st.markdown("✅ 100%保留图片/目录/原排版 | ✅ 高校论文格式一键适配 | ✅ 专业AI降重 | ✅ 标点规范/错别字修正")
 
-    # 模板选择
+    # ====================== 模板选择（修改为手动应用模式） ======================
     st.subheader("📋 一键套用标准格式模板")
     tpl_type = st.radio("模板类型", ["通用办公模板", "高校毕业论文模板", "党政公文模板"], horizontal=True)
     tpl_dict = GENERAL_TPL if tpl_type == "通用办公模板" else UNIVERSITY_TPL if tpl_type == "高校毕业论文模板" else OFFICIAL_TPL
     tpl_name = st.selectbox("选择目标格式", list(tpl_dict.keys()), index=0)
-    
     target_config = tpl_dict[tpl_name]
-    if st.session_state.current_config != target_config:
+
+    # 手动应用模板按钮
+    col1, col2 = st.columns([1, 3])
+    with col1:
+        apply_tpl = st.button("✅ 应用选中模板", type="primary", use_container_width=True)
+    with col2:
+        st.caption("选择模板后点击按钮应用，左侧格式参数会同步更新")
+
+    # 点击按钮后生效模板
+    if apply_tpl:
         st.session_state.current_config = target_config
         st.session_state.template_version += 1
-        st.success(f"✅ 已自动应用【{tpl_name}】，左侧格式参数已同步更新！")
+        st.success(f"✅ 已成功应用【{tpl_name}】模板，左侧格式参数已同步更新！")
         st.rerun()
 
     # 侧边栏设置

@@ -8,8 +8,8 @@ import tempfile
 import os
 import re
 
-# ====================== 【零出错核心】全局常量提前定义，绝对不修改 ======================
-# 对齐方式映射（100%不会匹配出错）
+# ====================== 全局常量定义 ======================
+# 对齐方式映射
 ALIGN_MAP = {
     "左对齐": WD_ALIGN_PARAGRAPH.LEFT,
     "居中": WD_ALIGN_PARAGRAPH.CENTER,
@@ -19,7 +19,7 @@ ALIGN_MAP = {
 }
 ALIGN_LIST = list(ALIGN_MAP.keys())
 
-# 行距配置
+# 行距配置（严格防越界）
 LINE_TYPE_MAP = {
     "单倍行距": WD_LINE_SPACING.SINGLE,
     "1.5倍行距": WD_LINE_SPACING.ONE_POINT_FIVE,
@@ -28,16 +28,12 @@ LINE_TYPE_MAP = {
     "固定值": WD_LINE_SPACING.EXACTLY
 }
 LINE_TYPE_LIST = list(LINE_TYPE_MAP.keys())
-LINE_DEFAULT_VALUE = {
-    "单倍行距": 1,
-    "1.5倍行距": 1.5,
-    "2倍行距": 2,
-    "多倍行距": 1.5,
-    "固定值": 20
-}
-LINE_VALUE_RANGE = {
-    "多倍行距": {"min": 0.5, "max": 5.0, "step": 0.1},
-    "固定值": {"min": 6, "max": 100, "step": 1}
+LINE_RULE = {
+    "单倍行距": {"default": 1, "min": 1, "max": 1, "step": 1, "label": "行距倍数"},
+    "1.5倍行距": {"default": 1.5, "min": 1.5, "max": 1.5, "step": 0.1, "label": "行距倍数"},
+    "2倍行距": {"default": 2, "min": 2, "max": 2, "step": 0.1, "label": "行距倍数"},
+    "多倍行距": {"default": 1.5, "min": 0.5, "max": 5.0, "step": 0.1, "label": "行距倍数"},
+    "固定值": {"default": 20, "min": 6, "max": 100, "step": 1, "label": "固定值(磅)"}
 }
 
 # 字体配置
@@ -53,8 +49,7 @@ TITLE_RULE = {
     "三级标题": re.compile(r"^[（(]\d+[）)]\s*.{0,60}$|^\d+\.\d+\s+.{0,60}$|^\d+\.\d+\.\d+\s*.{0,60}$|^\d+\）\s*.{0,60}$")
 }
 
-# ====================== 【比赛核心】模板库，100%对应 ======================
-# 通用模板
+# ====================== 模板库 ======================
 GENERAL_TPL = {
     "默认格式": {
         "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
@@ -65,7 +60,6 @@ GENERAL_TPL = {
     }
 }
 
-# 高校毕业论文模板（比赛核心亮点）
 UNIVERSITY_TPL = {
     "河北科技大学-本科毕业论文模板": {
         "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
@@ -97,7 +91,6 @@ UNIVERSITY_TPL = {
     }
 }
 
-# 党政公文模板
 OFFICIAL_TPL = {
     "党政机关公文国标GB/T 9704-2012模板": {
         "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
@@ -159,7 +152,7 @@ def set_en_number_font(run, font_name, font_size, bold=None):
         pass
 
 def get_title_level(para, enable_regex, last_title_level):
-    """带上下文推理的标题识别，解决三级标题识别不清"""
+    """带上下文推理的标题识别"""
     style_name = para.style.name
     if "Heading 1" in style_name or "标题 1" in style_name:
         return "一级标题"
@@ -175,7 +168,6 @@ def get_title_level(para, enable_regex, last_title_level):
     if not text or len(text) > 100:
         return "正文"
     
-    # 上下文推理
     if last_title_level == "一级标题":
         if TITLE_RULE["二级标题"].match(text):
             return "二级标题"
@@ -189,7 +181,6 @@ def get_title_level(para, enable_regex, last_title_level):
         if TITLE_RULE["一级标题"].match(text):
             return "一级标题"
     
-    # 常规匹配
     for level in ["一级标题", "二级标题", "三级标题"]:
         if TITLE_RULE[level].match(text):
             return level
@@ -211,9 +202,7 @@ def process_number_in_para(para, body_font, body_size, number_config):
             set_run_font(run, body_font, body_size)
             continue
         
-        # 先给整个run设置正文格式
         set_run_font(run, body_font, body_size)
-        # 单独拆分数字设置格式，不改变位置
         for match in number_pattern.finditer(text):
             start, end = match.span()
             if start > 0:
@@ -251,34 +240,28 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
         doc = docx.Document(tmp_path)
         stats = {"一级标题": 0, "二级标题": 0, "三级标题": 0, "正文": 0, "表格": 0, "图片": 0}
 
-        # 统计图片数量
         for para in doc.paragraphs:
             try:
                 stats["图片"] += len(para._element.findall('.//w:drawing', {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}))
             except:
                 pass
 
-        # 处理段落
         last_title = None
         for para in doc.paragraphs:
-            # 保护段落，只改字体
             if is_protected_para(para):
                 for run in para.runs:
                     set_run_font(run, config["正文"]["font"], FONT_SIZE_NUM[config["正文"]["size"]])
                 continue
             
-            # 空段落跳过
             text = para.text.strip()
             if not text:
                 continue
             
-            # 识别标题
             level = get_title_level(para, enable_title_regex, last_title)
             stats[level] += 1
             if level in ["一级标题", "二级标题", "三级标题"]:
                 last_title = level
 
-            # AI处理文本
             processed_text = para.text
             if ai_mode != "不使用AI":
                 processed_text = ai_text_handle(processed_text, ai_mode)
@@ -289,18 +272,15 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
             if processed_text != para.text:
                 para.text = processed_text
 
-            # 获取当前层级的格式
             cfg = config[level]
             font_size = FONT_SIZE_NUM[cfg["size"]]
 
-            # 强制套用样式
             if force_style:
                 try:
                     para.style = level
                 except:
                     pass
 
-            # 设置段落格式
             try:
                 if cfg["align"] != "不修改":
                     para.alignment = ALIGN_MAP[cfg["align"]]
@@ -319,14 +299,12 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
             except:
                 pass
 
-            # 设置字体格式
             if level == "正文" and number_config["enable"]:
                 process_number_in_para(para, cfg["font"], font_size, number_config)
             else:
                 for run in para.runs:
                     set_run_font(run, cfg["font"], font_size, cfg["bold"])
 
-        # 处理表格
         for table in doc.tables:
             stats["表格"] += 1
             cfg = config["表格"]
@@ -358,7 +336,6 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
                         for run in para.runs:
                             set_run_font(run, cfg["font"], font_size, cfg["bold"])
 
-        # 清除多余空行
         if clear_blank:
             paragraphs = list(doc.paragraphs)
             blank_count = 0
@@ -376,7 +353,6 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
                 else:
                     blank_count = 0
 
-        # 保存文件
         output_path = tempfile.mktemp(suffix=".docx")
         doc.save(output_path)
         with open(output_path, "rb") as f:
@@ -393,21 +369,23 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
         if 'output_path' in locals() and os.path.exists(output_path):
             os.unlink(output_path)
 
-# ====================== 【零出错核心】页面主逻辑 ======================
+# ====================== 【修复核心】页面主逻辑 ======================
 def main():
     # 页面配置
     st.set_page_config(page_title="文式通 - Word格式智能处理系统", layout="wide")
     
-    # 【零出错核心】页面加载第一时间，初始化session_state
+    # 【修复核心】初始化session_state，增加模板版本号，强制组件刷新
     if "current_config" not in st.session_state:
         st.session_state.current_config = GENERAL_TPL["默认格式"]
+    if "template_version" not in st.session_state:
+        st.session_state.template_version = 0
     
     # 页面标题与声明
     st.title("📄 文式通 - Word格式智能处理系统")
     st.warning("⚠️ 重要声明：此工具仅能减少复杂的格式调整工作量，处理完成后仍需您手动与原文进行对比核对，确保内容与格式无误。")
     st.markdown("✅ 100%保留图片/目录/原排版 | ✅ 高校论文格式一键适配 | ✅ 标点规范/错别字修正 | ✅ 全国大学生计算机设计大赛参赛作品")
 
-    # 【零出错核心】模板选择，实时同步到session_state，选了就变，不用点按钮
+    # 【修复核心】模板选择，切换时强制刷新组件
     st.subheader("📋 一键套用标准格式模板")
     tpl_type = st.radio("模板类型", ["通用办公模板", "高校毕业论文模板", "党政公文模板"], horizontal=True)
     
@@ -419,19 +397,26 @@ def main():
     else:
         tpl_dict = OFFICIAL_TPL
     
-    # 选择具体模板，选了立刻更新session_state，左边实时变化
+    # 选择具体模板
     tpl_name = st.selectbox("选择目标格式", list(tpl_dict.keys()), index=0)
-    st.session_state.current_config = tpl_dict[tpl_name]
-    st.success(f"✅ 已自动应用【{tpl_name}】，左侧格式参数已同步更新！")
+    
+    # 【修复核心】模板变化时，强制更新配置+刷新页面，确保参数同步
+    target_config = tpl_dict[tpl_name]
+    if st.session_state.current_config != target_config:
+        st.session_state.current_config = target_config
+        st.session_state.template_version += 1
+        st.success(f"✅ 已自动应用【{tpl_name}】，左侧格式参数已同步更新！")
+        st.rerun()
 
-    # 侧边栏格式设置，100%绑定session_state，实时同步
+    # 侧边栏格式设置
     with st.sidebar:
         st.header("🎨 详细格式设置")
         cfg = st.session_state.current_config
 
-        # 强制重置按钮，一键恢复默认，解决所有缓存问题
+        # 强制重置按钮
         if st.button("🔄 强制重置格式参数", use_container_width=True):
             st.session_state.current_config = GENERAL_TPL["默认格式"]
+            st.session_state.template_version += 1
             st.success("已重置为默认格式！")
             st.rerun()
 
@@ -457,41 +442,89 @@ def main():
         else:
             ai_mode = st.radio("AI文本处理", ["不使用AI", "润色", "降重"], horizontal=True)
 
-        # 格式设置生成函数，100%绑定session_state
+        # 【修复核心】格式设置块，key加入版本号，切换模板强制重新渲染
         def create_format_block(title, level):
             st.divider()
             st.subheader(title)
             item = cfg[level]
+            version = st.session_state.template_version
             
-            # 字体、字号、加粗
-            item["font"] = st.selectbox("字体", FONT_LIST, key=f"{level}_font", index=FONT_LIST.index(item["font"]))
-            item["size"] = st.selectbox("字号", FONT_SIZE_LIST, key=f"{level}_size", index=FONT_SIZE_LIST.index(item["size"]))
-            item["bold"] = st.checkbox("加粗", value=item["bold"], key=f"{level}_bold")
+            # 字体选择，key带版本号，切换模板强制刷新
+            font_index = FONT_LIST.index(item["font"]) if item["font"] in FONT_LIST else 0
+            item["font"] = st.selectbox(
+                "字体", 
+                FONT_LIST, 
+                key=f"{level}_font_{version}", 
+                index=font_index
+            )
+            
+            # 字号选择
+            size_index = FONT_SIZE_LIST.index(item["size"]) if item["size"] in FONT_SIZE_LIST else 0
+            item["size"] = st.selectbox(
+                "字号", 
+                FONT_SIZE_LIST, 
+                key=f"{level}_size_{version}", 
+                index=size_index
+            )
+            
+            # 加粗
+            item["bold"] = st.checkbox(
+                "加粗", 
+                value=item["bold"], 
+                key=f"{level}_bold_{version}"
+            )
             
             # 对齐方式
-            item["align"] = st.selectbox("对齐方式", ALIGN_LIST, key=f"{level}_align", index=ALIGN_LIST.index(item["align"]))
+            align_index = ALIGN_LIST.index(item["align"]) if item["align"] in ALIGN_LIST else 0
+            item["align"] = st.selectbox(
+                "对齐方式", 
+                ALIGN_LIST, 
+                key=f"{level}_align_{version}", 
+                index=align_index
+            )
             
-            # 行距设置
-            item["line_type"] = st.selectbox("行距类型", LINE_TYPE_LIST, key=f"{level}_line_type", index=LINE_TYPE_LIST.index(item["line_type"]))
+            # 行距类型
+            line_type_index = LINE_TYPE_LIST.index(item["line_type"]) if item["line_type"] in LINE_TYPE_LIST else 0
+            new_line_type = st.selectbox(
+                "行距类型", 
+                LINE_TYPE_LIST, 
+                key=f"{level}_line_type_{version}", 
+                index=line_type_index
+            )
             
-            # 行距数值
-            if item["line_type"] in ["多倍行距", "固定值"]:
-                range_cfg = LINE_VALUE_RANGE[item["line_type"]]
-                item["line_value"] = st.number_input(
-                    "行距倍数" if item["line_type"] == "多倍行距" else "固定值(磅)",
-                    min_value=range_cfg["min"],
-                    max_value=range_cfg["max"],
-                    value=float(item["line_value"]),
-                    step=range_cfg["step"],
-                    key=f"{level}_line_value"
-                )
-            else:
-                item["line_value"] = LINE_DEFAULT_VALUE[item["line_type"]]
-                st.number_input("行距倍数", value=item["line_value"], disabled=True, key=f"{level}_line_disabled")
+            # 切换行距类型时，自动重置合法数值
+            if new_line_type != item["line_type"]:
+                item["line_type"] = new_line_type
+                item["line_value"] = LINE_RULE[new_line_type]["default"]
+                st.session_state.current_config[level] = item
+                st.rerun()
+            
+            # 行距数值，严格限制范围
+            line_rule = LINE_RULE[item["line_type"]]
+            current_value = item["line_value"]
+            if not (line_rule["min"] <= current_value <= line_rule["max"]):
+                current_value = line_rule["default"]
+                item["line_value"] = current_value
+            
+            item["line_value"] = st.number_input(
+                line_rule["label"],
+                min_value=line_rule["min"],
+                max_value=line_rule["max"],
+                value=float(current_value),
+                step=line_rule["step"],
+                key=f"{level}_line_value_{version}",
+                disabled=line_rule["min"] == line_rule["max"]
+            )
             
             # 首行缩进
             if "indent" in item:
-                item["indent"] = st.number_input("首行缩进(字符)", min_value=0, max_value=4, value=item["indent"], key=f"{level}_indent")
+                item["indent"] = st.number_input(
+                    "首行缩进(字符)", 
+                    min_value=0, 
+                    max_value=4, 
+                    value=item["indent"], 
+                    key=f"{level}_indent_{version}"
+                )
             
             # 更新到session_state
             st.session_state.current_config[level] = item
@@ -508,15 +541,15 @@ def main():
         st.divider()
         st.subheader("🔢 正文数字格式设置")
         number_config = {}
-        number_config["enable"] = st.checkbox("启用数字单独格式设置", value=True)
+        number_config["enable"] = st.checkbox("启用数字单独格式设置", value=True, key=f"number_enable_{st.session_state.template_version}")
         if number_config["enable"]:
-            number_config["font"] = st.selectbox("数字字体", EN_FONT_LIST, index=0)
-            number_config["size_same_as_body"] = st.checkbox("字号和正文一致", value=True)
+            number_config["font"] = st.selectbox("数字字体", EN_FONT_LIST, index=0, key=f"number_font_{st.session_state.template_version}")
+            number_config["size_same_as_body"] = st.checkbox("字号和正文一致", value=True, key=f"number_size_same_{st.session_state.template_version}")
             if not number_config["size_same_as_body"]:
-                number_config["size"] = st.selectbox("数字字号", FONT_SIZE_LIST, index=FONT_SIZE_LIST.index("小四"))
+                number_config["size"] = st.selectbox("数字字号", FONT_SIZE_LIST, index=FONT_SIZE_LIST.index("小四"), key=f"number_size_{st.session_state.template_version}")
             else:
                 number_config["size"] = "小四"
-            number_config["bold"] = st.checkbox("数字加粗", value=False)
+            number_config["bold"] = st.checkbox("数字加粗", value=False, key=f"number_bold_{st.session_state.template_version}")
 
     # 主界面上传&处理
     uploaded_file = st.file_uploader("📤 上传Word文档（仅支持.docx格式）", type="docx")

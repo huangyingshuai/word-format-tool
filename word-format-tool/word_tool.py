@@ -11,29 +11,8 @@ import re
 # ====================== 页面全局配置（必须放在最前面）======================
 st.set_page_config(page_title="文式通 - Word格式智能处理系统", layout="wide")
 
-# ====================== Streamlit状态管理（修复崩溃核心）======================
-if "format_config" not in st.session_state:
-    st.session_state.format_config = {
-        "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
-        "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
-        "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
-        "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 2},
-        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1, "indent": 0}
-    }
-# 行距类型对应的默认值
-LINE_TYPE_DEFAULT = {
-    "单倍行距": 1,
-    "1.5倍行距": 1.5,
-    "2倍行距": 2,
-    "多倍行距": 1.5,
-    "固定值": 20
-}
-# 行距类型对应的数值范围
-LINE_TYPE_RANGE = {
-    "多倍行距": {"min": 0.5, "max": 5.0, "step": 0.1},
-    "固定值": {"min": 6, "max": 100, "step": 1}
-}
-# 【修复崩溃核心】对齐方式映射表，统一键值对应关系
+# ====================== 全局常量定义（修复渲染bug核心）======================
+# 对齐方式映射表
 ALIGN_MAP = {
     "不修改": None,
     "左对齐": WD_ALIGN_PARAGRAPH.LEFT,
@@ -43,16 +22,27 @@ ALIGN_MAP = {
 }
 ALIGN_REVERSE_MAP = {v: k for k, v in ALIGN_MAP.items()}
 
-# ====================== 全局配置（部署适配版）======================
-try:
-    DOUBAO_API_KEY = st.secrets["DOUBAO_API_KEY"]
-    DOUBAO_MODEL = st.secrets.get("DOUBAO_MODEL", "ep-20250628104918-7rqxd")
-except:
-    DOUBAO_API_KEY = ""
-    DOUBAO_MODEL = "ep-20250628104918-7rqxd"
-DOUBAO_API_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+# 行距类型配置
+LINE_TYPE_DEFAULT = {
+    "单倍行距": 1,
+    "1.5倍行距": 1.5,
+    "2倍行距": 2,
+    "多倍行距": 1.5,
+    "固定值": 20
+}
+LINE_TYPE_RANGE = {
+    "多倍行距": {"min": 0.5, "max": 5.0, "step": 0.1},
+    "固定值": {"min": 6, "max": 100, "step": 1}
+}
+LINE_SPACING_TYPE_MAP = {
+    "单倍行距": WD_LINE_SPACING.SINGLE,
+    "1.5倍行距": WD_LINE_SPACING.ONE_POINT_FIVE,
+    "2倍行距": WD_LINE_SPACING.DOUBLE,
+    "多倍行距": WD_LINE_SPACING.MULTIPLE,
+    "固定值": WD_LINE_SPACING.EXACTLY
+}
 
-# ====================== 标准映射表 ======================
+# 字体映射表
 FONT_MAP = {
     "宋体": "SimSun",
     "微软雅黑": "Microsoft YaHei",
@@ -60,14 +50,12 @@ FONT_MAP = {
     "楷体": "KaiTi",
     "仿宋": "FangSong"
 }
-
 EN_FONT_MAP = {
     "Times New Roman": "Times New Roman",
     "Arial": "Arial",
     "Calibri": "Calibri",
     "和正文一致": "same"
 }
-
 FONT_SIZE_MAP = {
     "初号": 42,
     "小初": 36,
@@ -85,20 +73,12 @@ FONT_SIZE_MAP = {
     "小六": 6.5
 }
 
+# 标题识别正则
 TITLE_PATTERNS = {
     "一级标题": re.compile(r"^[一二三四五六七八九十]+、\s*[^，。？！；]{0,40}$|^第[一二三四五六七八九十]+章\s*[^，。？！；]{0,40}$|^第\d+章\s*[^，。？！；]{0,40}$|^\d+、\s*[^，。？！；]{0,40}$"),
     "二级标题": re.compile(r"^[（(][一二三四五六七八九十]+[）)]\s*[^，。？！；]{0,50}$|^\d+\.\s+[^，。？！；]{0,50}$|^\d+、\s*[^，。？！；]{0,50}$"),
     "三级标题": re.compile(r"^[（(]\d+[）)]\s*[^，。？！；]{0,60}$|^\d+\.\d+\s+[^，。？！；]{0,60}$|^\d+\.\d+\.\d+\s*[^，。？！；]{0,60}$|^\d+\）\s*[^，。？！；]{0,60}$")
 }
-
-LINE_SPACING_TYPE_MAP = {
-    "单倍行距": WD_LINE_SPACING.SINGLE,
-    "1.5倍行距": WD_LINE_SPACING.ONE_POINT_FIVE,
-    "2倍行距": WD_LINE_SPACING.DOUBLE,
-    "多倍行距": WD_LINE_SPACING.MULTIPLE,
-    "固定值": WD_LINE_SPACING.EXACTLY
-}
-
 STYLE_NAME_MAP = {
     "一级标题": ["标题 1", "Heading 1"],
     "二级标题": ["标题 2", "Heading 2"],
@@ -152,13 +132,6 @@ UNIVERSITY_TEMPLATES = {
         "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
         "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 2},
         "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1, "indent": 0}
-    },
-    "硕士研究生毕业论文通用模板": {
-        "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
-        "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
-        "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
-        "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 2},
-        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1, "indent": 0}
     }
 }
 
@@ -174,39 +147,18 @@ OFFICIAL_TEMPLATES = {
 
 WORD_NS = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
 
+# ====================== 全局API配置 ======================
+try:
+    DOUBAO_API_KEY = st.secrets["DOUBAO_API_KEY"]
+    DOUBAO_MODEL = st.secrets.get("DOUBAO_MODEL", "ep-20250628104918-7rqxd")
+except:
+    DOUBAO_API_KEY = ""
+    DOUBAO_MODEL = "ep-20250628104918-7rqxd"
+DOUBAO_API_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
+
 # ====================== 核心工具函数 ======================
-def iter_block_items(parent):
-    from docx.document import Document
-    from docx.text.paragraph import Paragraph
-    from docx.table import Table
-    from docx.oxml.text.paragraph import CT_P
-    from docx.oxml.table import CT_Tbl
-
-    if isinstance(parent, Document):
-        parent_elm = parent.element.body
-    elif isinstance(parent, docx.table._Cell):
-        parent_elm = parent._tc
-    else:
-        raise ValueError("不支持的父元素类型")
-
-    for child in parent_elm.iterchildren():
-        if isinstance(child, CT_P):
-            yield Paragraph(child, parent)
-        elif isinstance(child, CT_Tbl):
-            yield Table(child, parent)
-
-def set_paragraph_style(para, level, doc):
-    style_names = STYLE_NAME_MAP.get(level, ["正文", "Normal"])
-    for style_name in style_names:
-        try:
-            if style_name in doc.styles:
-                para.style = style_name
-                return
-        except:
-            continue
-    pass
-
 def is_protected_para(para):
+    """检查受保护段落（带图片、分页符、域代码），不修改内容只改字体"""
     if para.paragraph_format.page_break_before:
         return True
     for run in para.runs:
@@ -247,6 +199,7 @@ def set_en_run_font(run, font_name, font_size_pt, is_bold=None):
         pass
 
 def get_title_level(para, enable_regex=True, last_title_level=None):
+    """带上下文推理的标题识别"""
     style_name = para.style.name
     if "Heading 1" in style_name or style_name == "标题 1" or "TOC 1" in style_name:
         return "一级标题"
@@ -282,6 +235,7 @@ def get_title_level(para, enable_regex=True, last_title_level=None):
     return "正文"
 
 def process_number_text(para, body_font, body_size_pt, number_config):
+    """安全处理数字，不改变文本位置"""
     number_size_pt = body_size_pt if number_config["size_same_as_body"] else FONT_SIZE_MAP[number_config["size"]]
     number_pattern = re.compile(r"-?\d+\.?\d*%?")
     
@@ -305,43 +259,18 @@ def process_number_text(para, body_font, body_size_pt, number_config):
             number_run = run.split(end_idx - start_idx)
             set_en_run_font(number_run, number_config["font"], number_size_pt, is_bold=number_config["bold"])
 
-def remove_extra_blank_lines(doc, max_blank_lines=1):
-    paragraphs = list(doc.paragraphs)
-    blank_count = 0
-    for i in range(len(paragraphs)-1, -1, -1):
-        para = paragraphs[i]
-        is_blank = not para.text.strip()
-        if is_protected_para(para):
-            blank_count = 0
-            continue
-        if is_blank:
-            blank_count += 1
-            if blank_count > max_blank_lines:
-                p = para._element
-                p.getparent().remove(p)
-        else:
-            blank_count = 0
-
 # ====================== AI功能函数 ======================
 def ai_punctuation_correct(text):
     if not DOUBAO_API_KEY or not text.strip():
         return text
-    
     prompt = f"请对以下文本进行标点符号规范修正，要求：1. 中文内容使用中文全角标点，英文/数字内容使用英文半角标点；2. 修正错误的标点符号，统一标点规范；3. 完全保留原文的内容、语序、换行符；4. 仅输出修正后的文本，不要额外解释。\n原文：{text}"
-    
-    headers = {
-        "Authorization": f"Bearer {DOUBAO_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "model": DOUBAO_MODEL,
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.3,
-        "max_tokens": 4096
-    }
-    
     try:
-        response = requests.post(DOUBAO_API_URL, json=data, headers=headers, timeout=30)
+        response = requests.post(DOUBAO_API_URL, json={
+            "model": DOUBAO_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.3,
+            "max_tokens": 4096
+        }, headers={"Authorization": f"Bearer {DOUBAO_API_KEY}"}, timeout=30)
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
     except:
@@ -350,22 +279,14 @@ def ai_punctuation_correct(text):
 def ai_text_optimize(text):
     if not DOUBAO_API_KEY or not text.strip():
         return text
-    
     prompt = f"请对以下文本进行优化，要求：1. 修正所有错别字、语病、不通顺的语句；2. 优化语句流畅度，让表达更通顺自然；3. 完全保留原文的核心意思、专业术语、数字、段落结构、换行符；4. 仅输出优化后的文本，不要额外解释。\n原文：{text}"
-    
-    headers = {
-        "Authorization": f"Bearer {DOUBAO_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "model": DOUBAO_MODEL,
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.5,
-        "max_tokens": 4096
-    }
-    
     try:
-        response = requests.post(DOUBAO_API_URL, json=data, headers=headers, timeout=30)
+        response = requests.post(DOUBAO_API_URL, json={
+            "model": DOUBAO_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.5,
+            "max_tokens": 4096
+        }, headers={"Authorization": f"Bearer {DOUBAO_API_KEY}"}, timeout=30)
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
     except:
@@ -374,22 +295,14 @@ def ai_text_optimize(text):
 def ai_process_text(text, mode="润色"):
     if not DOUBAO_API_KEY or not text.strip():
         return text
-    
     prompt = f"请对以下文本进行{mode}处理，要求：1. 完全保留原文核心意思、专业术语、数字、标点符号；2. 不改变原文段落结构、换行符；3. 输出仅返回处理后的文本，不要额外解释。\n原文：{text}"
-    
-    headers = {
-        "Authorization": f"Bearer {DOUBAO_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "model": DOUBAO_MODEL,
-        "messages": [{"role": "user", "content": prompt}],
-        "temperature": 0.7,
-        "max_tokens": 4096
-    }
-    
     try:
-        response = requests.post(DOUBAO_API_URL, json=data, headers=headers, timeout=30)
+        response = requests.post(DOUBAO_API_URL, json={
+            "model": DOUBAO_MODEL,
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.7,
+            "max_tokens": 4096
+        }, headers={"Authorization": f"Bearer {DOUBAO_API_KEY}"}, timeout=30)
         response.raise_for_status()
         return response.json()["choices"][0]["message"]["content"]
     except:
@@ -454,10 +367,17 @@ def process_document(
             font_size_pt = FONT_SIZE_MAP[config["size"]]
 
             if force_style:
-                set_paragraph_style(para, level, doc)
+                style_names = STYLE_NAME_MAP.get(level, ["正文", "Normal"])
+                for style_name in style_names:
+                    try:
+                        if style_name in doc.styles:
+                            para.style = style_name
+                            break
+                    except:
+                        continue
 
             try:
-                if config["align"] is not None:
+                if config["align"] != "不修改":
                     para.alignment = ALIGN_MAP[config["align"]]
                 para.paragraph_format.line_spacing_rule = LINE_SPACING_TYPE_MAP[config["line_type"]]
                 if config["line_type"] == "多倍行距":
@@ -499,10 +419,13 @@ def process_document(
                             continue
                         
                         if force_style:
-                            set_paragraph_style(para, "正文", doc)
+                            try:
+                                para.style = "正文"
+                            except:
+                                pass
                         
                         try:
-                            if config["align"] is not None:
+                            if config["align"] != "不修改":
                                 para.alignment = ALIGN_MAP[config["align"]]
                             para.paragraph_format.line_spacing_rule = LINE_SPACING_TYPE_MAP[config["line_type"]]
                             if config["line_type"] == "多倍行距":
@@ -516,7 +439,21 @@ def process_document(
                             set_run_font(run, config["font"], font_size_pt, config["bold"])
 
         if remove_blank_lines:
-            remove_extra_blank_lines(doc, max_blank_lines)
+            paragraphs = list(doc.paragraphs)
+            blank_count = 0
+            for i in range(len(paragraphs)-1, -1, -1):
+                para = paragraphs[i]
+                is_blank = not para.text.strip()
+                if is_protected_para(para):
+                    blank_count = 0
+                    continue
+                if is_blank:
+                    blank_count += 1
+                    if blank_count > max_blank_lines:
+                        p = para._element
+                        p.getparent().remove(p)
+                else:
+                    blank_count = 0
 
         output_path = tempfile.mktemp(suffix=".docx")
         doc.save(output_path)
@@ -534,13 +471,18 @@ def process_document(
         if 'output_path' in locals() and os.path.exists(output_path):
             os.unlink(output_path)
 
-# ====================== Streamlit网页界面（彻底修复崩溃）======================
+# ====================== 【修复渲染bug核心】页面主逻辑 ======================
 def main():
+    # 1. 先初始化session_state（页面最前面执行）
+    if "format_config" not in st.session_state:
+        st.session_state.format_config = GENERAL_TEMPLATES["默认格式"]
+    
+    # 2. 页面标题与声明
     st.title("📄 文式通 - Word格式智能处理系统")
     st.warning("⚠️ 重要声明：此工具仅能减少复杂的格式调整工作量，处理完成后仍需您手动与原文进行对比核对，确保内容与格式无误。")
     st.markdown("✅ 100%保留图片/目录/原排版 | ✅ 高校论文格式一键适配 | ✅ 标点规范/错别字修正 | ✅ 全国大学生计算机设计大赛参赛作品")
 
-    # 模板选择模块
+    # 3. 模板选择模块（先执行模板选择，再渲染侧边栏）
     st.subheader("📋 一键套用标准格式模板")
     template_type = st.radio("模板类型", ["通用办公模板", "高校毕业论文模板", "党政公文模板"], horizontal=True)
 
@@ -552,14 +494,14 @@ def main():
         template_dict = OFFICIAL_TEMPLATES
 
     template_name = st.selectbox("选择目标格式", list(template_dict.keys()), index=0)
-    selected_template = template_dict[template_name]
-
-    if st.button("📌 应用选中的模板", use_container_width=True):
-        st.session_state.format_config = selected_template
-        st.success(f"已成功应用【{template_name}】，侧边栏格式参数已同步更新！")
+    
+    # 【修复核心】应用模板按钮逻辑，点击后立刻更新session_state并刷新页面
+    if st.button("📌 应用选中的模板", use_container_width=True, type="primary"):
+        st.session_state.format_config = template_dict[template_name]
+        st.success(f"✅ 已成功应用【{template_name}】，左侧格式参数已同步更新！")
         st.rerun()
 
-    # 侧边栏格式设置
+    # 4. 【修复核心】侧边栏格式设置（在模板按钮之后渲染，确保参数同步）
     with st.sidebar:
         st.header("🎨 详细格式设置")
         format_config = st.session_state.format_config
@@ -572,19 +514,16 @@ def main():
         st.divider()
         st.subheader("📄 空行清理设置")
         remove_blank_lines = st.checkbox("清除多余空行", value=False)
-        if remove_blank_lines:
-            max_blank_lines = st.slider("最多保留连续空行数", min_value=0, max_value=2, value=1)
-        else:
-            max_blank_lines = 1
+        max_blank_lines = st.slider("最多保留连续空行数", min_value=0, max_value=2, value=1) if remove_blank_lines else 1
 
         st.divider()
-        st.subheader("🔤 文本优化设置（需填写API密钥）")
+        st.subheader("🔤 文本优化设置")
         if not DOUBAO_API_KEY:
             st.info("ℹ️ 填写豆包API密钥即可启用以下功能")
         enable_punctuation_correct = st.checkbox("启用中英文标点规范修正", value=False, disabled=not DOUBAO_API_KEY)
         enable_text_optimize = st.checkbox("启用错别字修正+语句流畅度优化", value=False, disabled=not DOUBAO_API_KEY)
 
-        # 【修复崩溃核心】重构行距设置逻辑，安全匹配对齐方式
+        # 格式设置生成函数
         def create_format_config(title, key_prefix, level):
             st.divider()
             st.subheader(title)
@@ -595,7 +534,7 @@ def main():
             config["size"] = st.selectbox("字号", list(FONT_SIZE_MAP.keys()), key=f"{key_prefix}_size", index=list(FONT_SIZE_MAP.keys()).index(config["size"]))
             config["bold"] = st.checkbox("加粗", value=config["bold"], key=f"{key_prefix}_bold")
             
-            # 【修复崩溃核心】安全的对齐方式匹配
+            # 对齐方式
             current_align_text = ALIGN_REVERSE_MAP.get(ALIGN_MAP.get(config["align"], config["align"]), "不修改")
             config["align"] = st.selectbox(
                 "对齐方式", 
@@ -604,11 +543,11 @@ def main():
                 index=list(ALIGN_MAP.keys()).index(current_align_text)
             )
             
-            # 行距类型设置
+            # 行距设置
             line_type_list = list(LINE_SPACING_TYPE_MAP.keys())
             config["line_type"] = st.selectbox("行距类型", line_type_list, key=f"{key_prefix}_line_type", index=line_type_list.index(config["line_type"]))
             
-            # 动态行距数值输入
+            # 动态行距数值
             if config["line_type"] in ["多倍行距", "固定值"]:
                 range_config = LINE_TYPE_RANGE[config["line_type"]]
                 config["line_value"] = st.number_input(
@@ -621,12 +560,7 @@ def main():
                 )
             else:
                 config["line_value"] = LINE_TYPE_DEFAULT[config["line_type"]]
-                st.number_input(
-                    "行距倍数",
-                    value=config["line_value"],
-                    disabled=True,
-                    key=f"{key_prefix}_line_value_disabled"
-                )
+                st.number_input("行距倍数", value=config["line_value"], disabled=True, key=f"{key_prefix}_line_value_disabled")
             
             # 首行缩进
             if "indent" in config:
@@ -657,7 +591,7 @@ def main():
                 number_config["size"] = "小四"
             number_config["bold"] = st.checkbox("数字加粗", value=False)
 
-    # 主界面上传&处理
+    # 5. 主界面上传&处理
     uploaded_file = st.file_uploader("📤 上传Word文档（仅支持.docx格式）", type="docx")
     
     if uploaded_file:
@@ -665,7 +599,6 @@ def main():
         
         # AI功能设置
         if not DOUBAO_API_KEY:
-            st.info("ℹ️ 填写豆包API密钥即可启用AI润色/降重功能，不填写可正常使用所有格式调整功能")
             ai_mode = "不使用AI"
         else:
             ai_mode = st.radio("🤖 AI文本处理", ["不使用AI", "润色", "降重"], horizontal=True)

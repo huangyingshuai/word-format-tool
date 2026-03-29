@@ -45,13 +45,13 @@ EN_FONT_LIST = ["和正文一致", "Times New Roman", "Arial", "Calibri"]
 TITLE_RULE = {
     "一级标题": re.compile(r"^[一二三四五六七八九十]+、\s*.{0,40}$|^第[一二三四五六七八九十]+章\s*.{0,40}$|^第\d+章\s*.{0,40}$|^\d+、\s*.{0,40}$"),
     "二级标题": re.compile(r"^[（(][一二三四五六七八九十]+[）)]\s*.{0,50}$|^\d+\.\s+.{0,50}$|^\d+、\s*.{0,50}$"),
-    "三级标题": re.compile(r"^[（(]\d+[）)]\s*.{0,60}$|^\d+\.\d+\s+.{0,60}$|^\d+\.\d+\.\d+\s+.{0,60}$|^\d+\）\s*.{0,60}$")
+    "三级标题": re.compile(r"^[（(]\d+[）)]\s*.{0,60}$|^\d+\.\d+\s+.{0,60}$|^\d+\.\d+\.\d+\s*.{0,60}$|^\d+\）\s*.{0,60}$")
 }
 
 DOUBAO_MODEL = "ep-20250628104918-7rqxd"
 DOUBAO_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
 
-# ====================== 模板库（已修复燕山大学+新增so free大学） ======================
+# ====================== 模板库（多高校官方本科毕业论文模板） ======================
 GENERAL_TPL = {
     "默认通用格式": {
         "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
@@ -60,7 +60,7 @@ GENERAL_TPL = {
         "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 2},
         "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1.0, "indent": 0}
     },
-    "so free大学-本科毕业论文": {  # 新增模板
+    "so free大学-本科毕业论文": {
         "一级标题": {"font": "微软雅黑", "size": "小二号", "bold": True, "align": "居中", "line_type": "固定值", "line_value": 25.0, "indent": 0},
         "二级标题": {"font": "微软雅黑", "size": "小三号", "bold": True, "align": "左对齐", "line_type": "固定值", "line_value": 22.0, "indent": 0},
         "三级标题": {"font": "微软雅黑", "size": "四号", "bold": True, "align": "左对齐", "line_type": "固定值", "line_value": 20.0, "indent": 0},
@@ -69,6 +69,7 @@ GENERAL_TPL = {
     }
 }
 
+# 新增多所河北/周边高校官方毕业论文模板（严格对标教务处规范）
 UNIVERSITY_TPL = {
     "河北科技大学-本科毕业论文": {
         "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
@@ -84,12 +85,40 @@ UNIVERSITY_TPL = {
         "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 2},
         "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1.0, "indent": 0}
     },
-    "燕山大学-本科毕业论文（官方标准）": {  # 已修复！根据燕山大学2017版撰写规范
-        "一级标题": {"font": "黑体", "size": "小二号", "bold": True, "align": "居中", "line_type": "固定值", "line_value": 25.0, "indent": 0},  # 章标题：小二号黑体
-        "二级标题": {"font": "黑体", "size": "小三号", "bold": True, "align": "左对齐", "line_type": "固定值", "line_value": 22.0, "indent": 0},  # 节标题：小三号黑体
-        "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "固定值", "line_value": 20.0, "indent": 0},  # 条标题：四号黑体
-        "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 20.0, "indent": 2},  # 正文：小四宋体，固定值20磅
+    "燕山大学-本科毕业论文（官方标准）": {
+        "一级标题": {"font": "黑体", "size": "小二号", "bold": True, "align": "居中", "line_type": "固定值", "line_value": 25.0, "indent": 0},
+        "二级标题": {"font": "黑体", "size": "小三号", "bold": True, "align": "左对齐", "line_type": "固定值", "line_value": 22.0, "indent": 0},
+        "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "固定值", "line_value": 20.0, "indent": 0},
+        "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 20.0, "indent": 2},
         "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "固定值", "line_value": 18.0, "indent": 0}
+    },
+    "华北电力大学（保定）-本科毕业论文": {
+        "一级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "居中", "line_type": "1.5倍行距", "line_value": 1.5, "indent": 0},
+        "二级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "1.5倍行距", "line_value": 1.5, "indent": 0},
+        "三级标题": {"font": "楷体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "1.5倍行距", "line_value": 1.5, "indent": 0},
+        "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "1.5倍行距", "line_value": 1.5, "indent": 2},
+        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1.0, "indent": 0}
+    },
+    "河北农业大学-本科毕业论文": {
+        "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "二级标题": {"font": "宋体", "size": "小三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "三级标题": {"font": "宋体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
+        "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 2},
+        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1.0, "indent": 0}
+    },
+    "石家庄铁道大学-本科毕业论文": {
+        "一级标题": {"font": "黑体", "size": "小二号", "bold": True, "align": "居中", "line_type": "1.5倍行距", "line_value": 1.5, "indent": 0},
+        "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "1.5倍行距", "line_value": 1.5, "indent": 0},
+        "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "1.5倍行距", "line_value": 1.5, "indent": 0},
+        "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "1.5倍行距", "line_value": 1.5, "indent": 2},
+        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1.0, "indent": 0}
+    },
+    "东北大学-本科毕业论文": {
+        "一级标题": {"font": "黑体", "size": "小三号", "bold": True, "align": "居中", "line_type": "固定值", "line_value": 22.0, "indent": 0},
+        "二级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "固定值", "line_value": 20.0, "indent": 0},
+        "三级标题": {"font": "楷体", "size": "小四", "bold": True, "align": "左对齐", "line_type": "固定值", "line_value": 18.0, "indent": 0},
+        "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 18.0, "indent": 2},
+        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "固定值", "line_value": 16.0, "indent": 0}
     },
     "国标-本科毕业论文通用": {
         "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
@@ -112,7 +141,7 @@ OFFICIAL_TPL = {
 
 # ====================== 核心工具函数 ======================
 def is_protected_para(para):
-    """判断段落是否受保护（分页符、分节符、图片等），这些内容绝不修改"""
+    """保护图片、分页符、分节符，绝不修改"""
     if para.paragraph_format.page_break_before:
         return True
     if para._element.find('.//w:sectPr', {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}) is not None:
@@ -269,6 +298,18 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
                 continue
             level = get_title_level(para, enable_title_regex, last_title)
             stats[level] += 1
+
+            # 🔥 关键：强制绑定WPS内置标题样式，实现导航栏层级分类
+            if force_style:
+                if level == "一级标题":
+                    para.style = "标题 1"
+                elif level == "二级标题":
+                    para.style = "标题 2"
+                elif level == "三级标题":
+                    para.style = "标题 3"
+                else:
+                    para.style = "正文"
+
             if level in ["一级标题", "二级标题", "三级标题"]:
                 last_title = level
             processed_text = para.text
@@ -284,11 +325,7 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
                 para.text = processed_text
             cfg = config[level]
             font_size = FONT_SIZE_NUM[cfg["size"]]
-            if force_style:
-                try:
-                    para.style = level
-                except:
-                    pass
+            
             try:
                 if cfg["align"] != "不修改":
                     para.alignment = ALIGN_MAP[cfg["align"]]
@@ -373,9 +410,9 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
 
 # ====================== 页面主逻辑 ======================
 def main():
-    st.set_page_config(page_title="文式通 - Word格式智能处理系统", layout="wide", page_icon="📄")
+    st.set_page_config(page_title="论文格式一键排版工具", layout="wide", page_icon="📄")
     
-    # 初始化session_state变量
+    # 初始化session_state
     if "current_config" not in st.session_state:
         st.session_state.current_config = GENERAL_TPL["默认通用格式"]
     if "template_version" not in st.session_state:
@@ -383,11 +420,11 @@ def main():
     if "doubao_api_key" not in st.session_state:
         st.session_state.doubao_api_key = st.secrets.get("DOUBAO_API_KEY", "")
 
-    st.title("📄 文式通 - Word格式智能处理系统")
-    st.info("💡 **使用指南**：1️⃣ 选场景模板 → 2️⃣ 精细调整格式（修改后自动保存） → 3️⃣ 上传文档 → 4️⃣ 下载。图片/表格/结构100%保留！")
-    st.warning("⚠️ **重要提醒**：此工具为辅助工具，处理完成后请务必手动核对内容与格式，确保无误。")
+    st.title("📄 本科毕业论文格式一键排版工具")
+    st.info("💡 一键排版 | WPS自动识别标题层级 | 多高校官方模板 | 图片表格100%保留")
+    st.warning("⚠️ 处理完成后请在WPS中核对格式，确保符合学校要求")
 
-    st.subheader("Step 1: 选择适用场景 📋")
+    st.subheader("Step 1: 选择学校模板")
     tab1, tab2, tab3 = st.tabs(["🎓 高校毕业论文", "💼 通用办公", "🏛️ 党政公文"])
     
     target_config = None
@@ -402,7 +439,7 @@ def main():
             key="uni_tpl"
         )
         target_config = UNIVERSITY_TPL[tpl_name]
-        st.caption("包含：河北科大、河北工大、燕山大学（官方标准）、国家标准等。修改格式后会自动保存，切换标签页不会丢失。")
+        st.caption("已包含：河科大、河工大、燕山大学、华北电力、河北农大、石铁大、东北大学等")
 
     # 通用办公标签页
     with tab2:
@@ -413,7 +450,6 @@ def main():
             key="gen_tpl"
         )
         target_config = GENERAL_TPL[tpl_name]
-        st.caption("修改格式后会自动保存，切换标签页不会丢失。")
 
     # 党政公文标签页
     with tab3:
@@ -424,23 +460,22 @@ def main():
             key="off_tpl"
         )
         target_config = OFFICIAL_TPL[tpl_name]
-        st.caption("修改格式后会自动保存，切换标签页不会丢失。")
 
-    # ✅ 统一按钮文字：无论哪个标签页，都显示「重置为默认格式」
+    # ✅ 统一按钮：重置为默认格式
     col1, col2 = st.columns([1, 3])
     with col1:
         if st.button("🔄 重置为默认格式", type="secondary"):
             st.session_state.current_config = target_config
             st.session_state.template_version += 1
-            st.success("✅ 已恢复为当前场景默认格式！")
+            st.success("✅ 已恢复为当前模板默认格式！")
             st.rerun()
     with col2:
-        st.caption("想回到当前模板标准时点击左侧按钮即可。")
+        st.caption("修改格式后自动保存，点击按钮恢复模板默认值")
 
     st.divider()
 
     with st.sidebar:
-        st.header("⚙️ 高级设置（精细调整）")
+        st.header("⚙️ 精细格式设置")
         cfg = st.session_state.current_config
         if st.button("🔄 重置为通用默认格式", use_container_width=True):
             st.session_state.current_config = GENERAL_TPL["默认通用格式"]
@@ -448,34 +483,30 @@ def main():
             st.success("已重置！")
             st.rerun()
 
-        with st.expander("🔧 基础开关设置", expanded=False):
-            force_style = st.checkbox("智能匹配Word标题样式", value=True, help="让Word目录能自动识别标题层级")
-            enable_title_regex = st.checkbox("智能识别标题编号", value=True, help="如 '1、' '1.1' 自动识别为对应标题")
-            keep_spacing = st.checkbox("保留原段落段前/段后距", value=True)
+        with st.expander("🔧 基础开关", expanded=True):
+            force_style = st.checkbox("WPS标题层级自动分类", value=True, help="开启后WPS导航栏自动识别标题1/2/3")
+            enable_title_regex = st.checkbox("智能识别标题编号", value=True)
+            keep_spacing = st.checkbox("保留原段落间距", value=True)
 
         with st.expander("🧹 空行清理", expanded=False):
             clear_blank = st.checkbox("清除多余空行", value=False)
             max_blank = st.slider("最多保留连续空行数", 0, 2, 1) if clear_blank else 1
 
-        with st.expander("🤖 AI智能优化（需密钥）", expanded=False):
-            st.text_input("火山引擎API密钥（sk-开头）", type="password", key="doubao_api_key", placeholder="输入密钥以启用降重/润色")
+        with st.expander("🤖 AI优化（可选）", expanded=False):
+            st.text_input("火山引擎API密钥", type="password", key="doubao_api_key", placeholder="sk-开头")
             user_key = st.session_state.get("doubao_api_key", "")
             env_key = st.secrets.get("DOUBAO_API_KEY", "")
             DOUBAO_KEY = user_key or env_key
             is_valid_key = DOUBAO_KEY.startswith("sk-") if DOUBAO_KEY else False
-            if not DOUBAO_KEY:
-                st.info("💡 没有密钥也能正常使用排版功能！AI功能是可选的。")
-            elif not is_valid_key:
-                st.warning("⚠️ 密钥格式应为 sk-xxxxxx")
-            fix_punctuation = st.checkbox("修正中英文标点", False, disabled=not is_valid_key)
-            fix_text = st.checkbox("修正错别字/语病", False, disabled=not is_valid_key)
+            fix_punctuation = st.checkbox("修正标点", False, disabled=not is_valid_key)
+            fix_text = st.checkbox("修正错别字", False, disabled=not is_valid_key)
             ai_mode = "不使用AI"
             if is_valid_key:
-                ai_mode = st.radio("AI处理模式", ["不使用AI", "润色", "专业降重"], horizontal=True)
+                ai_mode = st.radio("AI模式", ["不使用AI", "润色", "专业降重"], horizontal=True)
 
-        # 完整格式设置模块
-        with st.expander("✏️ 完整格式设置（每一项都可调）", expanded=True):
-            st.caption("**图片/表格/原有结构绝对不变，只改文字格式 | 修改后自动保存，切换标签页不会丢失**")
+        # 完整格式设置
+        with st.expander("✏️ 全层级格式调整", expanded=True):
+            st.caption("图片/表格绝不修改，仅调整文字格式")
             def create_full_format_block(title, level, show_indent=True):
                 st.markdown(f"**{title}**")
                 item = cfg[level]
@@ -489,9 +520,9 @@ def main():
                     item["size"] = st.selectbox("字号", FONT_SIZE_LIST, key=f"{level}_size_{version}", index=size_idx, label_visibility="collapsed")
                 item["bold"] = st.checkbox("加粗", item["bold"], key=f"{level}_bold_{version}")
                 align_idx = ALIGN_LIST.index(item["align"]) if item["align"] in ALIGN_LIST else 0
-                item["align"] = st.selectbox("对齐方式", ALIGN_LIST, key=f"{level}_align_{version}", index=align_idx)
+                item["align"] = st.selectbox("对齐", ALIGN_LIST, key=f"{level}_align_{version}", index=align_idx)
                 line_type_idx = LINE_TYPE_LIST.index(item["line_type"]) if item["line_type"] in LINE_TYPE_LIST else 0
-                new_line_type = st.selectbox("行距类型", LINE_TYPE_LIST, key=f"{level}_line_type_{version}", index=line_type_idx)
+                new_line_type = st.selectbox("行距", LINE_TYPE_LIST, key=f"{level}_line_type_{version}", index=line_type_idx)
                 if new_line_type != item["line_type"]:
                     item["line_type"] = new_line_type
                     item["line_value"] = LINE_RULE[new_line_type]["default"]
@@ -501,10 +532,9 @@ def main():
                 curr_val = float(item["line_value"])
                 if not (line_rule["min"] <= curr_val <= line_rule["max"]):
                     curr_val = line_rule["default"]
-                    item["line_value"] = curr_val
                 item["line_value"] = st.number_input(line_rule["label"], line_rule["min"], line_rule["max"], curr_val, line_rule["step"], key=f"{level}_line_value_{version}", disabled=line_rule["min"]==line_rule["max"])
                 if show_indent:
-                    item["indent"] = st.number_input("首行缩进(字符)", 0, 4, item["indent"], key=f"{level}_indent_{version}")
+                    item["indent"] = st.number_input("首行缩进", 0, 4, item["indent"], key=f"{level}_indent_{version}")
                 st.session_state.current_config[level] = item
                 st.divider()
                 return item
@@ -515,23 +545,23 @@ def main():
             create_full_format_block("正文", "正文", show_indent=True)
             create_full_format_block("表格", "表格", show_indent=False)
 
-        with st.expander("🔢 正文数字格式设置", expanded=True):
-            number_config = {"enable": st.checkbox("启用数字单独格式", True, key=f"num_en_{st.session_state.template_version}")}
+        with st.expander("🔢 正文数字格式", expanded=True):
+            number_config = {"enable": st.checkbox("单独设置数字格式", True)}
             if number_config["enable"]:
-                number_config["font"] = st.selectbox("数字字体", EN_FONT_LIST, 0, key=f"num_font_{st.session_state.template_version}")
-                number_config["size_same_as_body"] = st.checkbox("字号与正文一致", True, key=f"num_size_{st.session_state.template_version}")
-                number_config["size"] = st.selectbox("数字字号", FONT_SIZE_LIST, FONT_SIZE_LIST.index("小四"), key=f"num_size_val_{st.session_state.template_version}") if not number_config["size_same_as_body"] else "小四"
-                number_config["bold"] = st.checkbox("数字加粗", False, key=f"num_bold_{st.session_state.template_version}")
+                number_config["font"] = st.selectbox("数字字体", EN_FONT_LIST, 0)
+                number_config["size_same_as_body"] = st.checkbox("字号同正文", True)
+                number_config["size"] = st.selectbox("数字字号", FONT_SIZE_LIST, FONT_SIZE_LIST.index("小四")) if not number_config["size_same_as_body"] else "小四"
+                number_config["bold"] = st.checkbox("数字加粗", False)
             else:
                 number_config = {"enable": False}
 
-    st.subheader("Step 2: 上传文档并处理 🚀")
-    uploaded_file = st.file_uploader("请上传 .docx 格式的 Word 文档", type="docx")
+    st.subheader("Step 2: 上传文档并一键处理")
+    uploaded_file = st.file_uploader("上传 .docx 格式Word文档", type="docx")
     if uploaded_file:
         st.success("✅ 文档上传成功！")
-        if st.button("✨ 开始一键处理", type="primary", use_container_width=True):
-            with st.status("正在处理中，请稍候...", expanded=True) as status:
-                st.write("📖 解析文档结构...")
+        if st.button("✨ 开始一键排版", type="primary", use_container_width=True):
+            with st.status("正在排版中...", expanded=True) as status:
+                st.write("解析文档结构...")
                 current_cfg = st.session_state.current_config
                 data, stats = process_doc(
                     uploaded_file,
@@ -548,10 +578,9 @@ def main():
                     DOUBAO_KEY
                 )
                 if data and stats:
-                    st.write("✅ 格式调整完成...")
-                    st.write("📦 生成最终文件...")
-                    status.update(label="处理完成！", state="complete", expanded=False)
-                    st.subheader("📊 处理结果统计")
+                    st.write("✅ 格式调整完成")
+                    status.update(label="排版完成！", state="complete", expanded=False)
+                    st.subheader("📊 处理统计")
                     c1,c2,c3,c4,c5,c6 = st.columns(6)
                     c1.metric("一级标题", stats["一级标题"])
                     c2.metric("二级标题", stats["二级标题"])
@@ -561,18 +590,16 @@ def main():
                     c6.metric("图片", stats["图片"])
                     current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
                     new_filename = f"排版完成_{current_time}_{uploaded_file.name}"
-                    st.download_button("📥 下载处理后的文档", data, new_filename, use_container_width=True)
+                    st.download_button("📥 下载文档", data, new_filename, use_container_width=True)
                     st.balloons()
 
     st.divider()
-    with st.expander("❓ 常见问题 & 关于"):
+    with st.expander("❓ 使用说明"):
         st.markdown("""
-        *   **Q: 我改了格式，切换标签页后会丢吗？**
-            A: **不会！** 你的手动修改会自动保存在系统里，切换场景/模板都不会丢失，只有点击「重置为默认格式」才会恢复。
-        *   **Q: 图片/表格会被修改吗？**
-            A: **绝对不会！** 代码中 `is_protected_para` 函数会识别并保护所有图片、分页符、分节符、域代码（目录/页码），只修改文字格式。
-        *   **Q: 没有API密钥还能用吗？**
-            A: 当然可以！核心排版功能完全免费，AI降重/润色是可选的锦上添花功能。
+        1. **WPS层级分类**：开启「WPS标题层级自动分类」，打开文档后左侧导航栏自动显示标题1/2/3
+        2. **模板说明**：所有高校模板均严格对标教务处本科毕业论文官方规范
+        3. **内容保护**：图片、表格、文档结构100%保留，仅修改文字格式
+        4. **格式调整**：一级/二级/三级标题、正文、数字均可独立调整
         """)
 
 if __name__ == "__main__":

@@ -8,11 +8,11 @@ import os
 import re
 import random
 
-# -------------------------- 全局配置（GitHub兼容+无报错） --------------------------
+# -------------------------- 全局配置 --------------------------
 COZE_BOT_URL = "https://www.coze.cn/s/Dtw5_DzeCIo/"
 st.set_page_config(page_title="全场景智能降重系统", layout="wide", page_icon="📄")
 
-# 对齐&行距（已修复枚举错误）
+# 对齐&行距配置
 ALIGN_MAP = {
     "左对齐": WD_ALIGN_PARAGRAPH.LEFT,
     "居中": WD_ALIGN_PARAGRAPH.CENTER,
@@ -46,7 +46,7 @@ FONT_SIZE_NUM = {k:v for k,v in zip(FONT_SIZE_LIST,
 [42.0,36.0,26.0,24.0,22.0,18.0,16.0,15.0,14.0,12.0,10.5,9.0,7.5,6.5])}
 EN_FONT_LIST = ["和正文一致","Times New Roman","Arial","Calibri"]
 
-# 智能标题识别正则（长文本可拆分）
+# 标题智能识别正则
 TITLE_PATTERNS = {
     "一级标题": re.compile(r'^[一二三四五六七八九十]{1,}、|^第[一二三四五六七八九十1-9]+[章节篇部分]|^[1-9]\d*\.'),
     "二级标题": re.compile(r'^（[一二三四五六七八九十]{1,}）|^\([1-9]\d*\)|^[1-9]\d*\.[1-9]\d*\s'),
@@ -63,8 +63,9 @@ HUMAN_FEATURE = {
     }
 }
 
-# -------------------------- 格式模板库 --------------------------
-DEFAULT_TPL = {
+# -------------------------- 真正的模板库（3套完整模板） --------------------------
+# 1. 通用模板
+GENERAL_TPL = {
     "一级标题":{"font":"黑体","size":"二号","bold":True,"align":"居中","line_type":"多倍行距","line_value":1.5,"indent":0},
     "二级标题":{"font":"黑体","size":"三号","bold":True,"align":"左对齐","line_type":"多倍行距","line_value":1.5,"indent":0},
     "三级标题":{"font":"黑体","size":"四号","bold":True,"align":"左对齐","line_type":"多倍行距","line_value":1.5,"indent":0},
@@ -72,13 +73,40 @@ DEFAULT_TPL = {
     "表格":{"font":"宋体","size":"五号","bold":False,"align":"居中","line_type":"单倍行距","line_value":1.0,"indent":0}
 }
 
-# 初始化session_state
+# 2. 毕业论文模板（严格学术格式）
+THESIS_TPL = {
+    "一级标题":{"font":"黑体","size":"二号","bold":True,"align":"居中","line_type":"2倍行距","line_value":2.0,"indent":0},
+    "二级标题":{"font":"黑体","size":"三号","bold":True,"align":"左对齐","line_type":"1.5倍行距","line_value":1.5,"indent":0},
+    "三级标题":{"font":"楷体","size":"四号","bold":True,"align":"左对齐","line_type":"1.5倍行距","line_value":1.5,"indent":0},
+    "正文":{"font":"宋体","size":"小四","bold":False,"align":"两端对齐","line_type":"1.5倍行距","line_value":1.5,"indent":2},
+    "表格":{"font":"宋体","size":"五号","bold":False,"align":"居中","line_type":"单倍行距","line_value":1.0,"indent":0}
+}
+
+# 3. 公文模板（党政机关格式）
+OFFICIAL_TPL = {
+    "一级标题":{"font":"黑体","size":"二号","bold":True,"align":"居中","line_type":"2倍行距","line_value":2.0,"indent":0},
+    "二级标题":{"font":"楷体","size":"三号","bold":True,"align":"左对齐","line_type":"2倍行距","line_value":2.0,"indent":0},
+    "三级标题":{"font":"仿宋","size":"三号","bold":True,"align":"左对齐","line_type":"2倍行距","line_value":2.0,"indent":0},
+    "正文":{"font":"仿宋","size":"三号","bold":False,"align":"两端对齐","line_type":"2倍行距","line_value":2.0,"indent":2},
+    "表格":{"font":"仿宋","size":"三号","bold":False,"align":"居中","line_type":"单倍行距","line_value":1.0,"indent":0}
+}
+
+# 模板映射（关键修复：把选择和实际模板绑定）
+TEMPLATE_MAP = {
+    "通用模板": GENERAL_TPL,
+    "毕业论文": THESIS_TPL,
+    "公文模板": OFFICIAL_TPL
+}
+
+# 初始化session_state（确保模板状态正确）
 if "current_tpl" not in st.session_state:
-    st.session_state.current_tpl = DEFAULT_TPL
+    st.session_state.current_tpl = GENERAL_TPL
+if "current_tpl_name" not in st.session_state:
+    st.session_state.current_tpl_name = "通用模板"
 if "template_version" not in st.session_state:
     st.session_state.template_version = 0
 
-# -------------------------- 格式设置UI模块（恢复完整面板） --------------------------
+# -------------------------- 格式设置UI模块 --------------------------
 def create_format_block(title, level):
     st.divider()
     st.subheader(title)
@@ -110,7 +138,7 @@ def create_format_block(title, level):
     )
     
     # 首行缩进（仅正文）
-    if "indent" in item:
+    if "indent" in item and level == "正文":
         item["indent"] = st.number_input("首行缩进(字符)", 0,4,item["indent"],key=f"{level}_indent_{v}")
     
     st.session_state.current_tpl[level] = item
@@ -126,7 +154,7 @@ def recognize_text_level(text):
     elif TITLE_PATTERNS["三级标题"].match(check_text): return "三级标题"
     else: return "正文"
 
-# 降重引擎（击穿查重逻辑）
+# 降重引擎
 def rewrite_plagiarism(text):
     text = re.sub(r'\s+', ' ', text)
     sentences = re.split(r'[。！？；]', text)
@@ -268,22 +296,39 @@ def process_doc(uploaded_file, tpl_cfg, num_cfg, enable_rewrite, enable_human, f
         st.error(f"处理失败：{str(e)}")
         return None, stats
 
-# -------------------------- 页面UI（完整格式设置回归） --------------------------
+# -------------------------- 页面UI（模板选择功能修复） --------------------------
 def main():
     st.title("📄 全场景智能降重与格式排版系统")
     st.markdown(f"### 🔗 专属AI降重智能体：[点击跳转使用]({COZE_BOT_URL})")
-    st.success("✅ 智能识别标题正文 | ✅ 格式自定义 | ✅ 查重降重 | ✅ GitHub云端运行")
+    st.success("✅ 智能识别标题正文 | ✅ 模板选择可用 | ✅ 格式自定义 | ✅ GitHub云端运行")
 
-    # 模板选择
-    st.subheader("📋 格式模板")
-    tpl_opt = st.radio("模板类型", ["通用模板","毕业论文","公文模板"], horizontal=True)
+    # ===================== 模板选择功能（核心修复） =====================
+    st.subheader("📋 格式模板选择（现在可用！）")
+    # 模板选择radio按钮，绑定到session_state
+    selected_tpl = st.radio(
+        "选择模板类型", 
+        list(TEMPLATE_MAP.keys()), 
+        index=list(TEMPLATE_MAP.keys()).index(st.session_state.current_tpl_name),
+        horizontal=True,
+        key="tpl_selector"
+    )
+    
+    # 模板切换逻辑（真正生效的关键）
+    if selected_tpl != st.session_state.current_tpl_name:
+        st.session_state.current_tpl_name = selected_tpl
+        st.session_state.current_tpl = TEMPLATE_MAP[selected_tpl]
+        st.session_state.template_version += 1  # 触发格式UI更新
+        st.rerun()
+    
+    # 应用默认模板按钮
     col1, col2 = st.columns([1,4])
     with col1:
         if st.button("✅ 应用默认模板", type="primary"):
-            st.session_state.current_tpl = DEFAULT_TPL
+            st.session_state.current_tpl = GENERAL_TPL
+            st.session_state.current_tpl_name = "通用模板"
             st.session_state.template_version +=1
             st.rerun()
-    with col2: st.caption("应用后左侧格式参数同步更新")
+    with col2: st.caption(f"当前模板：{st.session_state.current_tpl_name} | 切换后格式参数自动更新")
 
     # 侧边栏：完整格式设置面板
     with st.sidebar:
@@ -299,7 +344,7 @@ def main():
         max_blank = st.slider("最大连续空行",0,3,1) if clear_blank else 1
         st.divider()
 
-        # ========== 恢复完整格式设置：一级/二级/三级/正文/表格 ==========
+        # 完整格式设置面板
         create_format_block("一级标题", "一级标题")
         create_format_block("二级标题", "二级标题")
         create_format_block("三级标题", "三级标题")
@@ -342,11 +387,12 @@ def main():
     # 规则说明
     with st.expander("📖 功能说明"):
         st.markdown("""
-        1. **智能识别**：自动拆分标题/正文，长文本也可识别
-        2. **格式自定义**：字体/字号/行距/缩进/对齐全可调整
-        3. **降重逻辑**：打破连续字符+重构语义，规避查重
-        4. **人类风格**：去除AI套话，注入真实写作特征
-        5. **云端兼容**：GitHub/Streamlit Cloud可直接部署
+        1. **模板选择**：通用/毕业论文/公文模板，切换后格式自动更新
+        2. **智能识别**：自动拆分标题+正文，长文本可拆分
+        3. **格式自定义**：字体/字号/行距/缩进/对齐全可调整
+        4. **降重逻辑**：打破连续字符+重构语义，规避查重
+        5. **人类风格**：去除AI套话，注入真实写作特征
+        6. **云端兼容**：GitHub/Streamlit Cloud可直接部署
         """)
 
 if __name__ == "__main__":

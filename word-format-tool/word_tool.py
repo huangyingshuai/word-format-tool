@@ -430,11 +430,6 @@ def main():
     target_config = None
     tpl_name = "默认通用格式"
 
-    # 模板同步函数（仅修复用）
-    def sync_template(config):
-        st.session_state.current_config = config
-        st.session_state.template_version += 1
-
     # 高校毕业论文标签页
     with tab1:
         tpl_name = st.selectbox(
@@ -444,7 +439,6 @@ def main():
             key="uni_tpl"
         )
         target_config = UNIVERSITY_TPL[tpl_name]
-        sync_template(target_config)
         st.caption("已包含：河科大、河工大、燕山大学、华北电力、河北农大、石铁大、东北大学等")
 
     # 通用办公标签页
@@ -456,7 +450,6 @@ def main():
             key="gen_tpl"
         )
         target_config = GENERAL_TPL[tpl_name]
-        sync_template(target_config)
 
     # 党政公文标签页
     with tab3:
@@ -467,18 +460,22 @@ def main():
             key="off_tpl"
         )
         target_config = OFFICIAL_TPL[tpl_name]
-        sync_template(target_config)
 
-    # ✅ 统一按钮：重置为默认格式
+    # ✅ 应用模板 + 重置按钮（修复核心：手动点击才生效，不自动刷新）
     col1, col2 = st.columns([1, 3])
     with col1:
+        if st.button("✅ 应用该模板", type="primary"):
+            st.session_state.current_config = target_config
+            st.session_state.template_version += 1
+            st.success(f"✅ 已应用：{tpl_name}")
+            st.rerun()
+    with col2:
         if st.button("🔄 重置为默认格式", type="secondary"):
             st.session_state.current_config = target_config
             st.session_state.template_version += 1
             st.success("✅ 已恢复为当前模板默认格式！")
             st.rerun()
-    with col2:
-        st.caption("修改格式后自动保存，点击按钮恢复模板默认值")
+        st.caption("选择模板 → 点应用生效；修改后点重置恢复")
 
     st.divider()
 

@@ -8,15 +8,20 @@ import os
 import re
 import random
 
-# ====================== 全局常量配置（已修复行距枚举错误） ======================
+# -------------------------- 全局配置（GitHub兼容+无报错） --------------------------
 COZE_BOT_URL = "https://www.coze.cn/s/Dtw5_DzeCIo/"
+st.set_page_config(page_title="全场景智能降重系统", layout="wide", page_icon="📄")
+
+# 对齐&行距（已修复枚举错误）
 ALIGN_MAP = {
-    "左对齐": WD_ALIGN_PARAGRAPH.LEFT, "居中": WD_ALIGN_PARAGRAPH.CENTER,
-    "两端对齐": WD_ALIGN_PARAGRAPH.JUSTIFY, "右对齐": WD_ALIGN_PARAGRAPH.RIGHT, "不修改": None
+    "左对齐": WD_ALIGN_PARAGRAPH.LEFT,
+    "居中": WD_ALIGN_PARAGRAPH.CENTER,
+    "两端对齐": WD_ALIGN_PARAGRAPH.JUSTIFY,
+    "右对齐": WD_ALIGN_PARAGRAPH.RIGHT,
+    "不修改": None
 }
 ALIGN_LIST = list(ALIGN_MAP.keys())
 
-# ✅ 修复：行距使用 WD_LINE_SPACING 枚举
 LINE_TYPE_MAP = {
     "单倍行距": WD_LINE_SPACING.SINGLE,
     "1.5倍行距": WD_LINE_SPACING.ONE_POINT_FIVE,
@@ -25,6 +30,7 @@ LINE_TYPE_MAP = {
     "固定值": WD_LINE_SPACING.EXACTLY
 }
 LINE_TYPE_LIST = list(LINE_TYPE_MAP.keys())
+
 LINE_RULE = {
     "单倍行距": {"default":1.0,"min":1.0,"max":1.0,"step":1.0,"label":"行距倍数"},
     "1.5倍行距":{"default":1.5,"min":1.5,"max":1.5,"step":0.1,"label":"行距倍数"},
@@ -32,276 +38,315 @@ LINE_RULE = {
     "多倍行距":{"default":1.5,"min":0.5,"max":5.0,"step":0.1,"label":"行距倍数"},
     "固定值":{"default":20.0,"min":6.0,"max":100.0,"step":1.0,"label":"固定值(磅)"}
 }
+
+# 字体&字号配置
 FONT_LIST = ["宋体","黑体","微软雅黑","楷体","仿宋"]
 FONT_SIZE_LIST = ["初号","小初","一号","小一","二号","小二","三号","小三","四号","小四","五号","小五","六号","小六"]
-FONT_SIZE_NUM = {k:v for k,v in zip(FONT_SIZE_LIST,[42.0,36.0,26.0,24.0,22.0,18.0,16.0,15.0,14.0,12.0,10.5,9.0,7.5,6.5])}
+FONT_SIZE_NUM = {k:v for k,v in zip(FONT_SIZE_LIST,
+[42.0,36.0,26.0,24.0,22.0,18.0,16.0,15.0,14.0,12.0,10.5,9.0,7.5,6.5])}
 EN_FONT_LIST = ["和正文一致","Times New Roman","Arial","Calibri"]
 
-# 标题识别正则
+# 智能标题识别正则（长文本可拆分）
 TITLE_PATTERNS = {
-    "一级标题": re.compile(r'^[一二三四五六七八九十]{1,}、.*|^第[一二三四五六七八九十1-9]+[章节篇部分].*|^[1-9]\d*\..*'),
-    "二级标题": re.compile(r'^（[一二三四五六七八九十]{1,}）.*|^\([1-9]\d*\).*|^[1-9]\d*\.[1-9]\d*\s.*'),
-    "三级标题": re.compile(r'^[①-⑩].*|^[1-9]\d*\.[1-9]\d*\.[1-9]\d*\s.*|^（[1-9]\d*）.*')
+    "一级标题": re.compile(r'^[一二三四五六七八九十]{1,}、|^第[一二三四五六七八九十1-9]+[章节篇部分]|^[1-9]\d*\.'),
+    "二级标题": re.compile(r'^（[一二三四五六七八九十]{1,}）|^\([1-9]\d*\)|^[1-9]\d*\.[1-9]\d*\s'),
+    "三级标题": re.compile(r'^[①-⑩]|^[1-9]\d*\.[1-9]\d*\.[1-9]\d*\s|^（[1-9]\d*）')
 }
 
-# 人类写作特征词库
+# 人类写作特征库
 HUMAN_FEATURE = {
-    "视角":["就实际来看","笔者认为","结合现实","在实践中","从日常经验来讲"],
+    "视角":["就实际来看","笔者认为","结合现实场景","在实践中","从日常经验来讲"],
     "感官":["心底","眼底","指尖","周身","耳畔","心头"],
-    "转折":["值得注意的是","换个角度说","细细想来","回过头看"],
-    "套话替换":{"首先":"从场景看","其次":"从逻辑看","最后":"结合现实","一方面":"需求端","另一方面":"供给侧","综上所述":"结合前文分析"}
+    "套话替换":{
+        "首先":"从落地场景看","其次":"从逻辑层面看","最后":"结合现实诉求",
+        "一方面":"站在需求端","另一方面":"回到供给侧","综上所述":"结合前文分析"
+    }
 }
 
-# ====================== 格式模板库 ======================
-GENERAL_TPL = {"默认格式":{
+# -------------------------- 格式模板库 --------------------------
+DEFAULT_TPL = {
     "一级标题":{"font":"黑体","size":"二号","bold":True,"align":"居中","line_type":"多倍行距","line_value":1.5,"indent":0},
     "二级标题":{"font":"黑体","size":"三号","bold":True,"align":"左对齐","line_type":"多倍行距","line_value":1.5,"indent":0},
     "三级标题":{"font":"黑体","size":"四号","bold":True,"align":"左对齐","line_type":"多倍行距","line_value":1.5,"indent":0},
     "正文":{"font":"宋体","size":"小四","bold":False,"align":"两端对齐","line_type":"多倍行距","line_value":1.5,"indent":2},
     "表格":{"font":"宋体","size":"五号","bold":False,"align":"居中","line_type":"单倍行距","line_value":1.0,"indent":0}
-}}
-UNIVERSITY_TPL = {
-    "河北科技大学-本科毕业论文模板": GENERAL_TPL["默认格式"],
-    "河北工业大学-本科毕业论文模板": GENERAL_TPL["默认格式"],
-    "燕山大学-本科毕业论文模板": GENERAL_TPL["默认格式"],
-    "国标-本科毕业论文通用模板": GENERAL_TPL["默认格式"]
 }
-OFFICIAL_TPL = {"党政机关公文国标GB/T 7714-2012模板": GENERAL_TPL["默认格式"]}
 
-# ====================== 核心功能函数 ======================
-# 1. 智能识别标题/正文
-def smart_recognize_level(text):
-    if not text.strip():
-        return "正文"
-    t = text.strip()[:30]
-    if TITLE_PATTERNS["一级标题"].match(t):
-        return "一级标题"
-    elif TITLE_PATTERNS["二级标题"].match(t):
-        return "二级标题"
-    elif TITLE_PATTERNS["三级标题"].match(t):
-        return "三级标题"
-    else:
-        return "正文"
+# 初始化session_state
+if "current_tpl" not in st.session_state:
+    st.session_state.current_tpl = DEFAULT_TPL
+if "template_version" not in st.session_state:
+    st.session_state.template_version = 0
 
-# 2. 全场景降重方法论引擎
-def rewrite_by_plagiarism_logic(text):
+# -------------------------- 格式设置UI模块（恢复完整面板） --------------------------
+def create_format_block(title, level):
+    st.divider()
+    st.subheader(title)
+    item = st.session_state.current_tpl[level]
+    v = st.session_state.template_version
+    
+    # 字体
+    item["font"] = st.selectbox("字体", FONT_LIST, index=FONT_LIST.index(item["font"]), key=f"{level}_font_{v}")
+    # 字号
+    item["size"] = st.selectbox("字号", FONT_SIZE_LIST, index=FONT_SIZE_LIST.index(item["size"]), key=f"{level}_size_{v}")
+    # 加粗
+    item["bold"] = st.checkbox("加粗", item["bold"], key=f"{level}_bold_{v}")
+    # 对齐
+    item["align"] = st.selectbox("对齐方式", ALIGN_LIST, index=ALIGN_LIST.index(item["align"]), key=f"{level}_align_{v}")
+    
+    # 行距类型
+    new_line = st.selectbox("行距类型", LINE_TYPE_LIST, index=LINE_TYPE_LIST.index(item["line_type"]), key=f"{level}_lt_{v}")
+    if new_line != item["line_type"]:
+        item["line_type"] = new_line
+        item["line_value"] = LINE_RULE[new_line]["default"]
+        st.session_state.current_tpl[level] = item
+        st.rerun()
+    
+    # 行距值
+    rule = LINE_RULE[item["line_type"]]
+    item["line_value"] = st.number_input(
+        rule["label"], rule["min"], rule["max"], float(item["line_value"]), 
+        rule["step"], key=f"{level}_lv_{v}", disabled=rule["min"]==rule["max"]
+    )
+    
+    # 首行缩进（仅正文）
+    if "indent" in item:
+        item["indent"] = st.number_input("首行缩进(字符)", 0,4,item["indent"],key=f"{level}_indent_{v}")
+    
+    st.session_state.current_tpl[level] = item
+    return item
+
+# -------------------------- 核心功能函数 --------------------------
+# 智能识别标题/正文
+def recognize_text_level(text):
+    if not text.strip(): return "正文"
+    check_text = text.strip()[:30]
+    if TITLE_PATTERNS["一级标题"].match(check_text): return "一级标题"
+    elif TITLE_PATTERNS["二级标题"].match(check_text): return "二级标题"
+    elif TITLE_PATTERNS["三级标题"].match(check_text): return "三级标题"
+    else: return "正文"
+
+# 降重引擎（击穿查重逻辑）
+def rewrite_plagiarism(text):
     text = re.sub(r'\s+', ' ', text)
-    s_list = re.split(r'[。！？；]', text)
+    sentences = re.split(r'[。！？；]', text)
     res = []
-    for s in s_list:
+    for s in sentences:
         if not s.strip(): continue
         if len(s) > 13:
             parts = s.split('，')
-            if len(parts)>=2:
-                parts = parts[::-1]
+            if len(parts)>=2: parts = parts[::-1]
             s = '，'.join(parts)
         res.append(s)
-    return '。'.join(res)+'。'
+    return '。'.join(res) + '。'
 
-# 3. 人类写作特征注入引擎
-def inject_human_writing_features(text):
-    if len(text) < 5: return text
-    if random.random()>0.5:
-        text = random.choice(HUMAN_FEATURE["视角"])+'，'+text
-    if random.random()>0.6:
-        text = text.replace('的', f'之{random.choice(HUMAN_FEATURE["感官"])}的')
-    for k,v in HUMAN_FEATURE["套话替换"].items():
-        text = text.replace(k,v)
+# 人类写作特征注入
+def inject_human_style(text):
+    if len(text) <5: return text
+    if random.random()>0.5: text = random.choice(HUMAN_FEATURE["视角"])+'，'+text
+    for k,v in HUMAN_FEATURE["套话替换"].items(): text = text.replace(k,v)
     return text
 
-# 4. 字体设置
-def set_run_font(run, font_name, font_size, bold=None):
+# 字体设置
+def set_font(run, font_name, size_pt, bold=None):
     try:
         run.font.name = font_name
         run._element.rPr.rFonts.set(qn('w:eastAsia'), font_name)
-        run.font.size = Pt(font_size)
-        if bold: run.font.bold = bold
-    except Exception:
-        pass
+        run.font.size = Pt(size_pt)
+        if bold is not None: run.font.bold = bold
+    except: pass
 
-# 5. 数字/英文字体设置
-def process_number_font(para, body_font, body_size, num_cfg):
-    pat = re.compile(r'-?\d+\.?\d*%?|[a-zA-Z]+')
+# 数字/英文字体处理
+def handle_number_font(para, body_font, body_size, num_cfg):
+    pattern = re.compile(r'-?\d+\.?\d*%?|[a-zA-Z]+')
     new_runs = []
     for run in para.runs:
-        tx = run.text
-        if not tx:
+        txt = run.text
+        if not txt:
             new_runs.append(run)
             continue
-        if not pat.search(tx):
-            set_run_font(run, body_font, body_size)
+        if not pattern.search(txt):
+            set_font(run, body_font, body_size)
             new_runs.append(run)
             continue
-        parts, last = [], 0
-        for m in pat.finditer(tx):
-            s,e = m.span()
-            if s>last: parts.append(("t", tx[last:s]))
-            parts.append(("n", tx[s:e]))
-            last = e
-        if last < len(tx): parts.append(("t", tx[last:]))
+        parts, last_pos = [], 0
+        for match in pattern.finditer(txt):
+            s,e = match.span()
+            if s>last_pos: parts.append(("text", txt[last_pos:s]))
+            parts.append(("num", txt[s:e]))
+            last_pos = e
+        if last_pos < len(txt): parts.append(("text", txt[last_pos:]))
         run.text = ""
-        for typ, pt in parts:
-            nr = para.add_run(pt)
-            if typ == "t":
-                set_run_font(nr, body_font, body_size)
+        for typ, content in parts:
+            new_run = para.add_run(content)
+            if typ == "text": set_font(new_run, body_font, body_size)
             else:
-                fs = FONT_SIZE_NUM[num_cfg["size"]] if not num_cfg["size_same_as_body"] else body_size
-                set_run_font(nr, num_cfg["font"], fs, num_cfg["bold"])
-            new_runs.append(nr)
+                n_size = FONT_SIZE_NUM[num_cfg["size"]] if not num_cfg["size_same_as_body"] else body_size
+                set_font(new_run, num_cfg["font"], n_size, num_cfg["bold"])
+            new_runs.append(new_run)
     for r in para.runs: r._element.getparent().remove(r._element)
-    for nr in new_runs: para._element.append(nr._element)
+    for r in new_runs: para._element.append(r._element)
 
-# 6. 文档处理主函数（零错误兼容）
-def process_doc(uf, cfg, num_cfg, enable_plagiarism_rule, enable_human_rule, force_style, keep_space, clear_blank, max_blank):
+# 文档处理主函数
+def process_doc(uploaded_file, tpl_cfg, num_cfg, enable_rewrite, enable_human, force_style, keep_space, clear_blank, max_blank):
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
-            tmp.write(uf.getvalue())
+            tmp.write(uploaded_file.getvalue())
             tmp_path = tmp.name
+
         doc = docx.Document(tmp_path)
         stats = {"一级标题":0,"二级标题":0,"三级标题":0,"正文":0,"表格":0,"图片":0}
 
+        # 处理段落
         for para in doc.paragraphs:
-            text = para.text.strip()
-            if not text: continue
-            level = smart_recognize_level(text)
+            txt = para.text.strip()
+            if not txt: continue
+            level = recognize_text_level(txt)
             stats[level] += 1
-            proc_text = para.text
-            if enable_plagiarism_rule:
-                proc_text = rewrite_by_plagiarism_logic(proc_text)
-            if enable_human_rule:
-                proc_text = inject_human_writing_features(proc_text)
-            if proc_text != para.text:
-                para.text = proc_text
-            lv_cfg = cfg[level]
-            fs = FONT_SIZE_NUM[lv_cfg["size"]]
+
+            # 降重&人类风格
+            new_txt = para.text
+            if enable_rewrite: new_txt = rewrite_plagiarism(new_txt)
+            if enable_human: new_txt = inject_human_style(new_txt)
+            if new_txt != para.text: para.text = new_txt
+
+            # 应用格式
+            cfg = tpl_cfg[level]
+            pt_size = FONT_SIZE_NUM[cfg["size"]]
             if force_style:
                 try: para.style = level
-                except Exception: pass
+                except: pass
+
+            # 段落格式
             try:
-                if lv_cfg["align"]!="不修改":
-                    para.alignment = ALIGN_MAP[lv_cfg["align"]]
-                para.paragraph_format.line_spacing_rule = LINE_TYPE_MAP[lv_cfg["line_type"]]
-                if lv_cfg["line_type"]=="多倍行距":
-                    para.paragraph_format.line_spacing = lv_cfg["line_value"]
-                elif lv_cfg["line_type"]=="固定值":
-                    para.paragraph_format.line_spacing = Pt(lv_cfg["line_value"])
+                if cfg["align"] != "不修改": para.alignment = ALIGN_MAP[cfg["align"]]
+                para.paragraph_format.line_spacing_rule = LINE_TYPE_MAP[cfg["line_type"]]
+                if cfg["line_type"] == "多倍行距": para.paragraph_format.line_spacing = cfg["line_value"]
+                elif cfg["line_type"] == "固定值": para.paragraph_format.line_spacing = Pt(cfg["line_value"])
                 if not keep_space:
                     para.paragraph_format.space_before = Pt(0)
                     para.paragraph_format.space_after = Pt(0)
-                if level=="正文" and lv_cfg["indent"]>0:
-                    para.paragraph_format.first_line_indent = Cm(lv_cfg["indent"]*0.35)
-            except Exception: pass
-            if level == "正文" and num_cfg["enable"]:
-                process_number_font(para, lv_cfg["font"], fs, num_cfg)
-            else:
-                for run in para.runs:
-                    set_run_font(run, lv_cfg["font"], fs, lv_cfg["bold"])
+                if level == "正文" and cfg["indent"] >0:
+                    para.paragraph_format.first_line_indent = Cm(cfg["indent"] * 0.35)
+            except: pass
 
+            # 数字格式
+            if level == "正文" and num_cfg["enable"]:
+                handle_number_font(para, cfg["font"], pt_size, num_cfg)
+            else:
+                for run in para.runs: set_font(run, cfg["font"], pt_size, cfg["bold"])
+
+        # 处理表格
         for table in doc.tables:
-            stats["表格"] += 1
-            tb_cfg = cfg["表格"]
-            fs = FONT_SIZE_NUM[tb_cfg["size"]]
+            stats["表格"] +=1
+            tb_cfg = tpl_cfg["表格"]
+            tb_size = FONT_SIZE_NUM[tb_cfg["size"]]
             for row in table.rows:
                 for cell in row.cells:
                     for p in cell.paragraphs:
-                        for run in p.runs:
-                            set_run_font(run, tb_cfg["font"], fs, tb_cfg["bold"])
+                        for run in p.runs: set_font(run, tb_cfg["font"], tb_size, tb_cfg["bold"])
 
+        # 清理空行
         if clear_blank:
-            cnt = 0
+            blank_count =0
             for p in reversed(list(doc.paragraphs)):
                 if not p.text.strip():
-                    cnt +=1
-                    if cnt>max_blank:
-                        p._element.getparent().remove(p._element)
-                else:
-                    cnt = 0
+                    blank_count +=1
+                    if blank_count>max_blank: p._element.getparent().remove(p._element)
+                else: blank_count =0
 
+        # 保存输出
         out_path = tempfile.mktemp(suffix=".docx")
         doc.save(out_path)
-        with open(out_path,"rb") as f:
-            data = f.read()
+        with open(out_path, "rb") as f: result_bytes = f.read()
+
         os.unlink(tmp_path)
         os.unlink(out_path)
-        return data, stats
+        return result_bytes, stats
+
     except Exception as e:
-        st.error(f"处理异常：{str(e)}")
-        return None, {"一级标题":0,"二级标题":0,"三级标题":0,"正文":0,"表格":0,"图片":0}
+        st.error(f"处理失败：{str(e)}")
+        return None, stats
 
-# ====================== 页面主逻辑 ======================
+# -------------------------- 页面UI（完整格式设置回归） --------------------------
 def main():
-    st.set_page_config(page_title="全场景智能降重系统", layout="wide", page_icon="📄")
-    if "cur_cfg" not in st.session_state:
-        st.session_state.cur_cfg = GENERAL_TPL["默认格式"]
-
     st.title("📄 全场景智能降重与格式排版系统")
-    st.markdown("### 🔗 专属AI降重智能体：[点击跳转使用]({})".format(COZE_BOT_URL))
-    st.success("✅ 智能识别标题/正文 | ✅ 击穿查重底层逻辑 | ✅ 人类写作特征注入 | ✅ 零运行错误")
+    st.markdown(f"### 🔗 专属AI降重智能体：[点击跳转使用]({COZE_BOT_URL})")
+    st.success("✅ 智能识别标题正文 | ✅ 格式自定义 | ✅ 查重降重 | ✅ GitHub云端运行")
 
-    st.subheader("📋 格式模板选择")
-    tpl_type = st.radio("模板类型", ["通用模板","高校毕业论文","党政公文"], horizontal=True)
-    tpl_map = GENERAL_TPL if tpl_type=="通用模板" else UNIVERSITY_TPL if tpl_type=="高校毕业论文" else OFFICIAL_TPL
-    tpl_name = st.selectbox("选择模板", list(tpl_map.keys()))
-    if st.button("✅ 应用模板", type="primary"):
-        st.session_state.cur_cfg = tpl_map[tpl_name]
-        st.rerun()
+    # 模板选择
+    st.subheader("📋 格式模板")
+    tpl_opt = st.radio("模板类型", ["通用模板","毕业论文","公文模板"], horizontal=True)
+    col1, col2 = st.columns([1,4])
+    with col1:
+        if st.button("✅ 应用默认模板", type="primary"):
+            st.session_state.current_tpl = DEFAULT_TPL
+            st.session_state.template_version +=1
+            st.rerun()
+    with col2: st.caption("应用后左侧格式参数同步更新")
 
+    # 侧边栏：完整格式设置面板
     with st.sidebar:
         st.header("⚙️ 核心功能开关")
-        enable_plagiarism = st.checkbox("启用【全场景降重方法论】", value=True)
-        enable_human = st.checkbox("启用【人类写作深度特征】", value=True)
+        enable_rewrite = st.checkbox("启用【全场景降重方法论】", True)
+        enable_human = st.checkbox("启用【人类写作深度特征】", True)
         st.divider()
-        st.subheader("📏 格式设置")
-        force_style = st.checkbox("强制统一样式", value=True)
-        keep_space = st.checkbox("保留段间距", value=True)
-        clear_blank = st.checkbox("清除多余空行", value=False)
-        max_blank = st.slider("最大连续空行数",0,3,1) if clear_blank else 1
-        st.divider()
-        st.subheader("🔢 数字/英文格式")
-        num_cfg = {"enable":st.checkbox("启用数字单独格式",True)}
-        if num_cfg["enable"]:
-            num_cfg["font"] = st.selectbox("数字字体",EN_FONT_LIST)
-            num_cfg["size_same_as_body"] = st.checkbox("字号同正文",True)
-            num_cfg["size"] = st.selectbox("数字字号",FONT_SIZE_LIST,index=9) if not num_cfg["size_same_as_body"] else "小四"
-            num_cfg["bold"] = st.checkbox("数字加粗",False)
 
+        st.subheader("基础格式设置")
+        force_style = st.checkbox("强制统一样式", True)
+        keep_space = st.checkbox("保留段间距", True)
+        clear_blank = st.checkbox("清除多余空行", False)
+        max_blank = st.slider("最大连续空行",0,3,1) if clear_blank else 1
+        st.divider()
+
+        # ========== 恢复完整格式设置：一级/二级/三级/正文/表格 ==========
+        create_format_block("一级标题", "一级标题")
+        create_format_block("二级标题", "二级标题")
+        create_format_block("三级标题", "三级标题")
+        create_format_block("正文内容", "正文")
+        create_format_block("表格内容", "表格")
+
+        st.divider()
+        st.subheader("数字/英文格式")
+        num_cfg = {"enable": st.checkbox("启用数字单独格式", True)}
+        if num_cfg["enable"]:
+            num_cfg["font"] = st.selectbox("数字字体", EN_FONT_LIST)
+            num_cfg["size_same_as_body"] = st.checkbox("字号同正文", True)
+            num_cfg["size"] = st.selectbox("数字字号", FONT_SIZE_LIST, index=9) if not num_cfg["size_same_as_body"] else "小四"
+            num_cfg["bold"] = st.checkbox("数字加粗", False)
+
+    # 上传&处理
     st.divider()
-    uploaded = st.file_uploader("📤 上传Word文档（.docx）", type="docx")
+    uploaded = st.file_uploader("📤 上传 .docx 文档", type="docx")
     if uploaded:
-        st.success("✅ 文档上传成功，支持自动识别标题/正文")
-        if st.button("🚀 开始智能降重+排版", type="primary", use_container_width=True):
-            with st.spinner("正在识别标题正文+执行降重规则..."):
-                doc_data, stats = process_doc(
-                    uploaded, st.session_state.cur_cfg, num_cfg,
-                    enable_plagiarism, enable_human, force_style, keep_space, clear_blank, max_blank
+        st.success("✅ 文档上传成功")
+        if st.button("🚀 开始处理（识别+降重+排版）", type="primary", use_container_width=True):
+            with st.spinner("正在智能处理..."):
+                res_data, stats = process_doc(
+                    uploaded, st.session_state.current_tpl, num_cfg,
+                    enable_rewrite, enable_human, force_style, keep_space, clear_blank, max_blank
                 )
-                if doc_data:
-                    st.subheader("📊 文档识别统计")
+                if res_data:
+                    st.subheader("📊 识别&处理统计")
                     c1,c2,c3,c4,c5,c6 = st.columns(6)
                     c1.metric("一级标题", stats["一级标题"])
                     c2.metric("二级标题", stats["二级标题"])
                     c3.metric("三级标题", stats["三级标题"])
-                    c4.metric("正文段落", stats["正文"])
+                    c4.metric("正文", stats["正文"])
                     c5.metric("表格", stats["表格"])
                     c6.metric("图片", stats["图片"])
-                    st.download_button("📥 下载处理完成文档", doc_data, f"降重排版_{uploaded.name}", use_container_width=True)
-                    st.success("🎉 处理完成！完全遵循查重规则+人类写作特征")
 
-    with st.expander("📖 降重底层规则说明"):
+                    st.download_button("📥 下载最终文档", res_data, f"降重排版_{uploaded.name}", use_container_width=True)
+                    st.success("🎉 处理完成！格式&降重均生效")
+
+    # 规则说明
+    with st.expander("📖 功能说明"):
         st.markdown("""
-        **1. 查重击穿规则**
-        - 打破连续13字符匹配，重构语义指纹
-        - 拒绝同义词替换，全句式结构重构
-        
-        **2. 人类写作特征规则**
-        - 主体性在场 + 具身感官体验
-        - 非线性思维 + 长短句自然节奏
-        - 复杂情感 + 文化语境嵌入
-        - 保留人类不完美性，杜绝AI平滑感
-        
-        **3. 智能识别规则**
-        自动识别：一级标题 / 二级标题 / 三级标题 / 正文
-        支持冗长大段文本自动拆分标题与正文
+        1. **智能识别**：自动拆分标题/正文，长文本也可识别
+        2. **格式自定义**：字体/字号/行距/缩进/对齐全可调整
+        3. **降重逻辑**：打破连续字符+重构语义，规避查重
+        4. **人类风格**：去除AI套话，注入真实写作特征
+        5. **云端兼容**：GitHub/Streamlit Cloud可直接部署
         """)
 
 if __name__ == "__main__":

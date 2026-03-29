@@ -63,7 +63,7 @@ HUMAN_FEATURE = {
     }
 }
 
-# -------------------------- 真正的模板库（3套完整模板） --------------------------
+# -------------------------- 完整模板库（所有模板回归） --------------------------
 # 1. 通用模板
 GENERAL_TPL = {
     "一级标题":{"font":"黑体","size":"二号","bold":True,"align":"居中","line_type":"多倍行距","line_value":1.5,"indent":0},
@@ -73,7 +73,34 @@ GENERAL_TPL = {
     "表格":{"font":"宋体","size":"五号","bold":False,"align":"居中","line_type":"单倍行距","line_value":1.0,"indent":0}
 }
 
-# 2. 毕业论文模板（严格学术格式）
+# 2. 河北科技大学毕业论文模板
+HEBUST_TPL = {
+    "一级标题":{"font":"黑体","size":"二号","bold":True,"align":"居中","line_type":"多倍行距","line_value":1.5,"indent":0},
+    "二级标题":{"font":"黑体","size":"三号","bold":True,"align":"左对齐","line_type":"多倍行距","line_value":1.5,"indent":0},
+    "三级标题":{"font":"黑体","size":"四号","bold":True,"align":"左对齐","line_type":"多倍行距","line_value":1.5,"indent":0},
+    "正文":{"font":"宋体","size":"小四","bold":False,"align":"两端对齐","line_type":"多倍行距","line_value":1.5,"indent":2},
+    "表格":{"font":"宋体","size":"五号","bold":False,"align":"居中","line_type":"单倍行距","line_value":1.0,"indent":0}
+}
+
+# 3. 河北工业大学毕业论文模板
+HEBUT_TPL = {
+    "一级标题":{"font":"黑体","size":"二号","bold":True,"align":"居中","line_type":"多倍行距","line_value":1.5,"indent":0},
+    "二级标题":{"font":"黑体","size":"三号","bold":True,"align":"左对齐","line_type":"多倍行距","line_value":1.5,"indent":0},
+    "三级标题":{"font":"楷体","size":"四号","bold":True,"align":"左对齐","line_type":"多倍行距","line_value":1.5,"indent":0},
+    "正文":{"font":"宋体","size":"小四","bold":False,"align":"两端对齐","line_type":"多倍行距","line_value":1.5,"indent":2},
+    "表格":{"font":"宋体","size":"五号","bold":False,"align":"居中","line_type":"单倍行距","line_value":1.0,"indent":0}
+}
+
+# 4. 燕山大学毕业论文模板
+YSU_TPL = {
+    "一级标题":{"font":"黑体","size":"二号","bold":True,"align":"居中","line_type":"固定值","line_value":20.0,"indent":0},
+    "二级标题":{"font":"黑体","size":"三号","bold":True,"align":"左对齐","line_type":"多倍行距","line_value":1.5,"indent":0},
+    "三级标题":{"font":"黑体","size":"四号","bold":True,"align":"左对齐","line_type":"多倍行距","line_value":1.5,"indent":0},
+    "正文":{"font":"宋体","size":"小四","bold":False,"align":"两端对齐","line_type":"固定值","line_value":20.0,"indent":2},
+    "表格":{"font":"宋体","size":"五号","bold":False,"align":"居中","line_type":"单倍行距","line_value":1.0,"indent":0}
+}
+
+# 5. 通用毕业论文模板
 THESIS_TPL = {
     "一级标题":{"font":"黑体","size":"二号","bold":True,"align":"居中","line_type":"2倍行距","line_value":2.0,"indent":0},
     "二级标题":{"font":"黑体","size":"三号","bold":True,"align":"左对齐","line_type":"1.5倍行距","line_value":1.5,"indent":0},
@@ -82,8 +109,8 @@ THESIS_TPL = {
     "表格":{"font":"宋体","size":"五号","bold":False,"align":"居中","line_type":"单倍行距","line_value":1.0,"indent":0}
 }
 
-# 3. 公文模板（党政机关格式）
-OFFICIAL_TPL = {
+# 6. 国家党政机关公文国标（GB/T 7714-2012）模板
+NATIONAL_OFFICIAL_TPL = {
     "一级标题":{"font":"黑体","size":"二号","bold":True,"align":"居中","line_type":"2倍行距","line_value":2.0,"indent":0},
     "二级标题":{"font":"楷体","size":"三号","bold":True,"align":"左对齐","line_type":"2倍行距","line_value":2.0,"indent":0},
     "三级标题":{"font":"仿宋","size":"三号","bold":True,"align":"左对齐","line_type":"2倍行距","line_value":2.0,"indent":0},
@@ -91,14 +118,17 @@ OFFICIAL_TPL = {
     "表格":{"font":"仿宋","size":"三号","bold":False,"align":"居中","line_type":"单倍行距","line_value":1.0,"indent":0}
 }
 
-# 模板映射（关键修复：把选择和实际模板绑定）
+# 模板映射（完整恢复所有模板）
 TEMPLATE_MAP = {
     "通用模板": GENERAL_TPL,
-    "毕业论文": THESIS_TPL,
-    "公文模板": OFFICIAL_TPL
+    "河北科技大学毕业论文": HEBUST_TPL,
+    "河北工业大学毕业论文": HEBUT_TPL,
+    "燕山大学毕业论文": YSU_TPL,
+    "通用毕业论文": THESIS_TPL,
+    "国家党政机关公文（GB/T 7714-2012）": NATIONAL_OFFICIAL_TPL
 }
 
-# 初始化session_state（确保模板状态正确）
+# 初始化session_state
 if "current_tpl" not in st.session_state:
     st.session_state.current_tpl = GENERAL_TPL
 if "current_tpl_name" not in st.session_state:
@@ -296,15 +326,15 @@ def process_doc(uploaded_file, tpl_cfg, num_cfg, enable_rewrite, enable_human, f
         st.error(f"处理失败：{str(e)}")
         return None, stats
 
-# -------------------------- 页面UI（模板选择功能修复） --------------------------
+# -------------------------- 页面UI（模板选择完整恢复） --------------------------
 def main():
     st.title("📄 全场景智能降重与格式排版系统")
     st.markdown(f"### 🔗 专属AI降重智能体：[点击跳转使用]({COZE_BOT_URL})")
-    st.success("✅ 智能识别标题正文 | ✅ 模板选择可用 | ✅ 格式自定义 | ✅ GitHub云端运行")
+    st.success("✅ 智能识别标题正文 | ✅ 多模板选择 | ✅ 格式自定义 | ✅ GitHub云端运行")
 
-    # ===================== 模板选择功能（核心修复） =====================
-    st.subheader("📋 格式模板选择（现在可用！）")
-    # 模板选择radio按钮，绑定到session_state
+    # ===================== 模板选择功能（完整恢复所有模板） =====================
+    st.subheader("📋 格式模板选择（所有模板回归！）")
+    # 模板选择radio按钮，显示所有模板
     selected_tpl = st.radio(
         "选择模板类型", 
         list(TEMPLATE_MAP.keys()), 
@@ -313,11 +343,11 @@ def main():
         key="tpl_selector"
     )
     
-    # 模板切换逻辑（真正生效的关键）
+    # 模板切换逻辑（自动更新格式参数）
     if selected_tpl != st.session_state.current_tpl_name:
         st.session_state.current_tpl_name = selected_tpl
         st.session_state.current_tpl = TEMPLATE_MAP[selected_tpl]
-        st.session_state.template_version += 1  # 触发格式UI更新
+        st.session_state.template_version += 1
         st.rerun()
     
     # 应用默认模板按钮
@@ -387,7 +417,7 @@ def main():
     # 规则说明
     with st.expander("📖 功能说明"):
         st.markdown("""
-        1. **模板选择**：通用/毕业论文/公文模板，切换后格式自动更新
+        1. **模板选择**：通用/3所高校/通用毕业论文/国家公文，共6套模板可切换
         2. **智能识别**：自动拆分标题+正文，长文本可拆分
         3. **格式自定义**：字体/字号/行距/缩进/对齐全可调整
         4. **降重逻辑**：打破连续字符+重构语义，规避查重

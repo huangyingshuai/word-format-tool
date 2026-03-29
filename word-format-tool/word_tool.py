@@ -361,7 +361,7 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
 def main():
     st.set_page_config(page_title="文式通 - Word格式智能处理系统", layout="wide", page_icon="📄")
     
-    # 初始化session_state变量（关键：current_config只初始化一次，后续手动修改永久保留）
+    # 初始化session_state变量
     if "current_config" not in st.session_state:
         st.session_state.current_config = GENERAL_TPL["默认通用格式"]
     if "template_version" not in st.session_state:
@@ -378,9 +378,8 @@ def main():
     
     target_config = None
     tpl_name = "默认通用格式"
-    tpl_display_name = ""
 
-    # 高校毕业论文标签页（只记录模板，不覆盖current_config）
+    # 高校毕业论文标签页
     with tab1:
         tpl_name = st.selectbox(
             "选择学校模板", 
@@ -389,10 +388,9 @@ def main():
             key="uni_tpl"
         )
         target_config = UNIVERSITY_TPL[tpl_name]
-        tpl_display_name = tpl_name
-        st.caption("包含：河北科大、河北工大、国家标准等。切换模板后，点击下方按钮可一键恢复模板格式。")
+        st.caption("包含：河北科大、河北工大、国家标准等。修改格式后会自动保存，切换标签页不会丢失。")
 
-    # 通用办公标签页（只记录模板，不覆盖current_config）
+    # 通用办公标签页
     with tab2:
         tpl_name = st.selectbox(
             "选择办公模板", 
@@ -401,9 +399,9 @@ def main():
             key="gen_tpl"
         )
         target_config = GENERAL_TPL[tpl_name]
-        tpl_display_name = tpl_name
+        st.caption("修改格式后会自动保存，切换标签页不会丢失。")
 
-    # 党政公文标签页（只记录模板，不覆盖current_config）
+    # 党政公文标签页
     with tab3:
         tpl_name = st.selectbox(
             "选择公文模板", 
@@ -412,18 +410,18 @@ def main():
             key="off_tpl"
         )
         target_config = OFFICIAL_TPL[tpl_name]
-        tpl_display_name = tpl_name
+        st.caption("修改格式后会自动保存，切换标签页不会丢失。")
 
-    # ✅ 新增：主动重置按钮（只有你想恢复模板时才点）
+    # ✅ 统一按钮文字：无论哪个标签页，都显示「重置为默认格式」
     col1, col2 = st.columns([1, 3])
     with col1:
-        if st.button(f"🔄 重置为【{tpl_display_name}】默认格式", type="secondary"):
+        if st.button("🔄 重置为默认格式", type="secondary"):
             st.session_state.current_config = target_config
             st.session_state.template_version += 1
-            st.success(f"✅ 已恢复为【{tpl_display_name}】默认格式！")
+            st.success("✅ 已恢复为当前场景默认格式！")
             st.rerun()
     with col2:
-        st.caption("修改格式后会自动保存，切换标签页不会丢失；想回到模板标准时点击左侧按钮即可。")
+        st.caption("想回到当前模板标准时点击左侧按钮即可。")
 
     st.divider()
 
@@ -461,7 +459,7 @@ def main():
             if is_valid_key:
                 ai_mode = st.radio("AI处理模式", ["不使用AI", "润色", "专业降重"], horizontal=True)
 
-        # 完整格式设置模块（你的手动修改会永久保存在current_config里）
+        # 完整格式设置模块
         with st.expander("✏️ 完整格式设置（每一项都可调）", expanded=True):
             st.caption("**图片/表格/原有结构绝对不变，只改文字格式 | 修改后自动保存，切换标签页不会丢失**")
             def create_full_format_block(title, level, show_indent=True):
@@ -556,7 +554,7 @@ def main():
     with st.expander("❓ 常见问题 & 关于"):
         st.markdown("""
         *   **Q: 我改了格式，切换标签页后会丢吗？**
-            A: **不会！** 你的手动修改会自动保存在系统里，切换场景/模板都不会丢失，只有点击「重置为模板默认格式」才会恢复。
+            A: **不会！** 你的手动修改会自动保存在系统里，切换场景/模板都不会丢失，只有点击「重置为默认格式」才会恢复。
         *   **Q: 图片/表格会被修改吗？**
             A: **绝对不会！** 代码中 `is_protected_para` 函数会识别并保护所有图片、分页符、分节符、域代码（目录/页码），只修改文字格式。
         *   **Q: 没有API密钥还能用吗？**

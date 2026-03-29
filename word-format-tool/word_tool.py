@@ -39,7 +39,7 @@ LINE_RULE = {
 
 FONT_LIST = ["宋体", "黑体", "微软雅黑", "楷体", "仿宋"]
 FONT_SIZE_LIST = ["初号", "小初", "一号", "小一", "二号", "小二", "三号", "小三", "四号", "小四", "五号", "小五", "六号", "小六"]
-FONT_SIZE_NUM = {k:v for k,v in zip(FONT_SIZE_LIST, [42.0,36.0,26.0,24.0,22.0,18.0,16.0,15.0,14.0,12.0,10.5,9.0,7.5,6.5])}
+FONT_SIZE_NUM = {k:v for k,v in zip(FONT_SIZE_LIST, [42.0,36.0,36.0,24.0,22.0,18.0,16.0,15.0,14.0,12.0,10.5,9.0,7.5,6.5])}
 EN_FONT_LIST = ["和正文一致", "Times New Roman", "Arial", "Calibri"]
 
 TITLE_RULE = {
@@ -98,7 +98,6 @@ OFFICIAL_TPL = {
 
 # ====================== 核心工具函数 ======================
 def is_protected_para(para):
-    """判断段落是否受保护（分页符、分节符、图片等），这些内容绝不修改"""
     if para.paragraph_format.page_break_before:
         return True
     if para._element.find('.//w:sectPr', {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}) is not None:
@@ -119,7 +118,7 @@ def set_run_font(run, font_name, font_size, bold=None):
         run.font.size = Pt(font_size)
         if bold is not None:
             run.font.bold = bold
-    except Exception as e:
+    except:
         pass
 
 def set_en_number_font(run, font_name, font_size, bold=None):
@@ -132,7 +131,7 @@ def set_en_number_font(run, font_name, font_size, bold=None):
         run.font.size = Pt(font_size)
         if bold is not None:
             run.font.bold = bold
-    except Exception as e:
+    except:
         pass
 
 def get_title_level(para, enable_regex, last_title_level):
@@ -228,7 +227,7 @@ def ai_text_handle(text, mode, doubao_key):
         else:
             return text
         return call_doubao_api(prompt, doubao_key)
-    except Exception as e:
+    except:
         return text
 
 def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_regex, force_style, keep_spacing, clear_blank, max_blank, fix_punctuation, fix_text, doubao_key):
@@ -361,109 +360,76 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
 def main():
     st.set_page_config(page_title="文式通 - Word格式智能处理系统", layout="wide", page_icon="📄")
     
-    # 初始化session_state变量
     if "current_config" not in st.session_state:
         st.session_state.current_config = GENERAL_TPL["默认通用格式"]
     if "template_version" not in st.session_state:
         st.session_state.template_version = 0
     if "doubao_api_key" not in st.session_state:
         st.session_state.doubao_api_key = st.secrets.get("DOUBAO_API_KEY", "")
-    if "current_selected_tpl" not in st.session_state:
-        st.session_state.current_selected_tpl = "默认通用格式"
 
     st.title("📄 文式通 - Word格式智能处理系统")
-    st.info("💡 **使用指南**：1️⃣ 选模板 → 2️⃣ 精细调整格式 → 3️⃣ 上传文档 → 4️⃣ 下载。图片/表格/结构100%保留！")
-    st.warning("⚠️ **重要提醒**：此工具为辅助工具，处理完成后请务必手动核对内容与格式，确保无误。")
+    st.info("💡 使用指南：选择模板 → 精细调整格式 → 上传文档 → 下载，图片/表格/结构100%保留！")
+    st.warning("⚠️ 重要提醒：此工具为辅助工具，处理完成后请务必手动核对内容与格式，确保无误。")
 
-    st.subheader("Step 1: 选择适用场景 📋")
+    st.subheader("📋 选择适用场景")
     tab1, tab2, tab3 = st.tabs(["🎓 高校毕业论文", "💼 通用办公", "🏛️ 党政公文"])
     
-    target_config = None
-    tpl_name = "默认通用格式"
-
-    # 高校毕业论文标签页
+    # 高校毕业论文
     with tab1:
-        tpl_name = st.selectbox(
-            "选择学校模板", 
-            list(UNIVERSITY_TPL.keys()), 
-            index=0,
-            key="uni_tpl"
-        )
-        # 关键修复：切换标签页时，自动同步当前标签页的模板名
-        st.session_state.current_selected_tpl = tpl_name
-        target_config = UNIVERSITY_TPL[tpl_name]
-        st.caption("包含：河北科大、河北工大、国家标准等。")
-
-    # 通用办公标签页
-    with tab2:
-        tpl_name = st.selectbox(
-            "选择办公模板", 
-            list(GENERAL_TPL.keys()), 
-            index=0,
-            key="gen_tpl"
-        )
-        # 关键修复：切换标签页时，自动同步当前标签页的模板名
-        st.session_state.current_selected_tpl = tpl_name
-        target_config = GENERAL_TPL[tpl_name]
-
-    # 党政公文标签页
-    with tab3:
-        tpl_name = st.selectbox(
-            "选择公文模板", 
-            list(OFFICIAL_TPL.keys()), 
-            index=0,
-            key="off_tpl"
-        )
-        # 关键修复：切换标签页时，自动同步当前标签页的模板名
-        st.session_state.current_selected_tpl = tpl_name
-        target_config = OFFICIAL_TPL[tpl_name]
-
-    # 按钮文字现在100%同步当前标签页的模板
-    if st.button(f"✅ 应用【{st.session_state.current_selected_tpl}】模板", type="primary"):
-        st.session_state.current_config = target_config
+        tpl_name = st.selectbox("选择学校模板", list(UNIVERSITY_TPL.keys()), index=0)
+        st.session_state.current_config = UNIVERSITY_TPL[tpl_name]
         st.session_state.template_version += 1
-        st.success(f"🎉 已成功应用【{st.session_state.current_selected_tpl}】模板！可在右侧高级设置中继续微调。")
-        st.rerun()
+        st.caption("切换模板自动生效，无需点击按钮")
+
+    # 通用办公
+    with tab2:
+        tpl_name = st.selectbox("选择办公模板", list(GENERAL_TPL.keys()), index=0)
+        st.session_state.current_config = GENERAL_TPL[tpl_name]
+        st.session_state.template_version += 1
+        st.caption("切换模板自动生效，无需点击按钮")
+
+    # 党政公文
+    with tab3:
+        tpl_name = st.selectbox("选择公文模板", list(OFFICIAL_TPL.keys()), index=0)
+        st.session_state.current_config = OFFICIAL_TPL[tpl_name]
+        st.session_state.template_version += 1
+        st.caption("切换模板自动生效，无需点击按钮")
 
     st.divider()
 
     with st.sidebar:
-        st.header("⚙️ 高级设置（精细调整）")
+        st.header("⚙️ 格式精细调整")
         cfg = st.session_state.current_config
         if st.button("🔄 重置为默认格式", use_container_width=True):
             st.session_state.current_config = GENERAL_TPL["默认通用格式"]
             st.session_state.template_version += 1
-            st.success("已重置！")
+            st.success("已重置为默认格式！")
             st.rerun()
 
-        with st.expander("🔧 基础开关设置", expanded=False):
-            force_style = st.checkbox("智能匹配Word标题样式", value=True, help="让Word目录能自动识别标题层级")
-            enable_title_regex = st.checkbox("智能识别标题编号", value=True, help="如 '1、' '1.1' 自动识别为对应标题")
-            keep_spacing = st.checkbox("保留原段落段前/段后距", value=True)
+        with st.expander("🔧 基础设置", expanded=False):
+            force_style = st.checkbox("智能匹配Word标题样式", value=True)
+            enable_title_regex = st.checkbox("智能识别标题编号", value=True)
+            keep_spacing = st.checkbox("保留原段落间距", value=True)
 
         with st.expander("🧹 空行清理", expanded=False):
             clear_blank = st.checkbox("清除多余空行", value=False)
             max_blank = st.slider("最多保留连续空行数", 0, 2, 1) if clear_blank else 1
 
-        with st.expander("🤖 AI智能优化（需密钥）", expanded=False):
-            st.text_input("火山引擎API密钥（sk-开头）", type="password", key="doubao_api_key", placeholder="输入密钥以启用降重/润色")
+        with st.expander("🤖 AI智能优化", expanded=False):
+            st.text_input("火山引擎API密钥", type="password", key="doubao_api_key", placeholder="sk-开头")
             user_key = st.session_state.get("doubao_api_key", "")
             env_key = st.secrets.get("DOUBAO_API_KEY", "")
             DOUBAO_KEY = user_key or env_key
             is_valid_key = DOUBAO_KEY.startswith("sk-") if DOUBAO_KEY else False
-            if not DOUBAO_KEY:
-                st.info("💡 没有密钥也能正常使用排版功能！AI功能是可选的。")
-            elif not is_valid_key:
-                st.warning("⚠️ 密钥格式应为 sk-xxxxxx")
+
             fix_punctuation = st.checkbox("修正中英文标点", False, disabled=not is_valid_key)
             fix_text = st.checkbox("修正错别字/语病", False, disabled=not is_valid_key)
             ai_mode = "不使用AI"
             if is_valid_key:
                 ai_mode = st.radio("AI处理模式", ["不使用AI", "润色", "专业降重"], horizontal=True)
 
-        # 完整格式设置模块
-        with st.expander("✏️ 完整格式设置（每一项都可调）", expanded=True):
-            st.caption("**图片/表格/原有结构绝对不变，只改文字格式**")
+        with st.expander("✏️ 完整格式设置（每项可独立调）", expanded=True):
+            st.caption("✅ 图片、表格、文档结构完全不改动，仅修改文字格式")
             def create_full_format_block(title, level, show_indent=True):
                 st.markdown(f"**{title}**")
                 item = cfg[level]
@@ -503,43 +469,30 @@ def main():
             create_full_format_block("正文", "正文", show_indent=True)
             create_full_format_block("表格", "表格", show_indent=False)
 
-        with st.expander("🔢 正文数字格式设置", expanded=True):
-            number_config = {"enable": st.checkbox("启用数字单独格式", True, key=f"num_en_{st.session_state.template_version}")}
+        with st.expander("🔢 正文数字格式", expanded=True):
+            number_config = {"enable": st.checkbox("启用数字单独格式", True)}
             if number_config["enable"]:
-                number_config["font"] = st.selectbox("数字字体", EN_FONT_LIST, 0, key=f"num_font_{st.session_state.template_version}")
-                number_config["size_same_as_body"] = st.checkbox("字号与正文一致", True, key=f"num_size_{st.session_state.template_version}")
-                number_config["size"] = st.selectbox("数字字号", FONT_SIZE_LIST, FONT_SIZE_LIST.index("小四"), key=f"num_size_val_{st.session_state.template_version}") if not number_config["size_same_as_body"] else "小四"
-                number_config["bold"] = st.checkbox("数字加粗", False, key=f"num_bold_{st.session_state.template_version}")
+                number_config["font"] = st.selectbox("数字字体", EN_FONT_LIST, 0)
+                number_config["size_same_as_body"] = st.checkbox("字号同正文", True)
+                number_config["size"] = st.selectbox("数字字号", FONT_SIZE_LIST, FONT_SIZE_LIST.index("小四")) if not number_config["size_same_as_body"] else "小四"
+                number_config["bold"] = st.checkbox("数字加粗", False)
             else:
                 number_config = {"enable": False}
 
-    st.subheader("Step 2: 上传文档并处理 🚀")
-    uploaded_file = st.file_uploader("请上传 .docx 格式的 Word 文档", type="docx")
+    st.subheader("🚀 上传文档并处理")
+    uploaded_file = st.file_uploader("上传 .docx Word文档", type="docx")
     if uploaded_file:
-        st.success("✅ 文档上传成功！")
-        if st.button("✨ 开始一键处理", type="primary", use_container_width=True):
-            with st.status("正在处理中，请稍候...", expanded=True) as status:
-                st.write("📖 解析文档结构...")
+        st.success("✅ 文档上传成功")
+        if st.button("开始一键处理", type="primary", use_container_width=True):
+            with st.status("处理中..."):
                 current_cfg = st.session_state.current_config
                 data, stats = process_doc(
-                    uploaded_file,
-                    current_cfg,
-                    number_config,
-                    ai_mode,
-                    enable_title_regex,
-                    force_style,
-                    keep_spacing,
-                    clear_blank,
-                    max_blank,
-                    fix_punctuation,
-                    fix_text,
-                    DOUBAO_KEY
+                    uploaded_file, current_cfg, number_config, ai_mode,
+                    enable_title_regex, force_style, keep_spacing,
+                    clear_blank, max_blank, fix_punctuation, fix_text, DOUBAO_KEY
                 )
                 if data and stats:
-                    st.write("✅ 格式调整完成...")
-                    st.write("📦 生成最终文件...")
-                    status.update(label="处理完成！", state="complete", expanded=False)
-                    st.subheader("📊 处理结果统计")
+                    st.subheader("📊 处理统计")
                     c1,c2,c3,c4,c5,c6 = st.columns(6)
                     c1.metric("一级标题", stats["一级标题"])
                     c2.metric("二级标题", stats["二级标题"])
@@ -547,20 +500,16 @@ def main():
                     c4.metric("正文段落", stats["正文"])
                     c5.metric("表格", stats["表格"])
                     c6.metric("图片", stats["图片"])
-                    current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    new_filename = f"排版完成_{current_time}_{uploaded_file.name}"
-                    st.download_button("📥 下载处理后的文档", data, new_filename, use_container_width=True)
+                    fname = f"排版完成_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uploaded_file.name}"
+                    st.download_button("📥 下载处理后文档", data, fname, use_container_width=True)
                     st.balloons()
 
     st.divider()
-    with st.expander("❓ 常见问题 & 关于"):
+    with st.expander("❓ 常见问题"):
         st.markdown("""
-        *   **Q: 图片/表格会被修改吗？**
-            A: **绝对不会！** 代码中 `is_protected_para` 函数会识别并保护所有图片、分页符、分节符、域代码（目录/页码），只修改文字格式。
-        *   **Q: 我可以只改某一级标题吗？**
-            A: 完全可以！每一级标题、正文、表格、数字都有独立的设置项，互不影响。
-        *   **Q: 没有API密钥还能用吗？**
-            A: 当然可以！核心排版功能完全免费，AI降重/润色是可选的锦上添花功能。
+        - 图片、表格、分页、目录**完全不改动**
+        - 一级/二级/三级标题/正文/数字**均可独立调整格式**
+        - 无API密钥也可正常使用**格式排版**核心功能
         """)
 
 if __name__ == "__main__":

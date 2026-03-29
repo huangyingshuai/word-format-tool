@@ -11,7 +11,7 @@ import re
 # ====================== 页面全局配置（必须放在最前面）======================
 st.set_page_config(page_title="文式通 - Word格式智能处理系统", layout="wide")
 
-# ====================== Streamlit状态管理（修复乱码+模板不同步核心）======================
+# ====================== Streamlit状态管理（修复崩溃核心）======================
 if "format_config" not in st.session_state:
     st.session_state.format_config = {
         "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
@@ -20,7 +20,7 @@ if "format_config" not in st.session_state:
         "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 2},
         "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1, "indent": 0}
     }
-# 行距类型对应的默认值（修复乱码核心）
+# 行距类型对应的默认值
 LINE_TYPE_DEFAULT = {
     "单倍行距": 1,
     "1.5倍行距": 1.5,
@@ -33,6 +33,15 @@ LINE_TYPE_RANGE = {
     "多倍行距": {"min": 0.5, "max": 5.0, "step": 0.1},
     "固定值": {"min": 6, "max": 100, "step": 1}
 }
+# 【修复崩溃核心】对齐方式映射表，统一键值对应关系
+ALIGN_MAP = {
+    "不修改": None,
+    "左对齐": WD_ALIGN_PARAGRAPH.LEFT,
+    "居中": WD_ALIGN_PARAGRAPH.CENTER,
+    "两端对齐": WD_ALIGN_PARAGRAPH.JUSTIFY,
+    "右对齐": WD_ALIGN_PARAGRAPH.RIGHT
+}
+ALIGN_REVERSE_MAP = {v: k for k, v in ALIGN_MAP.items()}
 
 # ====================== 全局配置（部署适配版）======================
 try:
@@ -79,7 +88,7 @@ FONT_SIZE_MAP = {
 TITLE_PATTERNS = {
     "一级标题": re.compile(r"^[一二三四五六七八九十]+、\s*[^，。？！；]{0,40}$|^第[一二三四五六七八九十]+章\s*[^，。？！；]{0,40}$|^第\d+章\s*[^，。？！；]{0,40}$|^\d+、\s*[^，。？！；]{0,40}$"),
     "二级标题": re.compile(r"^[（(][一二三四五六七八九十]+[）)]\s*[^，。？！；]{0,50}$|^\d+\.\s+[^，。？！；]{0,50}$|^\d+、\s*[^，。？！；]{0,50}$"),
-    "三级标题": re.compile(r"^[（(]\d+[）)]\s*[^，。？！；]{0,60}$|^\d+\.\d+\s+[^，。？！；]{0,60}$|^\d+\.\d+\.\d+\s+[^，。？！；]{0,60}$|^\d+\）\s*[^，。？！；]{0,60}$")
+    "三级标题": re.compile(r"^[（(]\d+[）)]\s*[^，。？！；]{0,60}$|^\d+\.\d+\s+[^，。？！；]{0,60}$|^\d+\.\d+\.\d+\s*[^，。？！；]{0,60}$|^\d+\）\s*[^，。？！；]{0,60}$")
 }
 
 LINE_SPACING_TYPE_MAP = {
@@ -449,8 +458,8 @@ def process_document(
 
             try:
                 if config["align"] is not None:
-                    para.alignment = config["align"]
-                para.paragraph_format.line_spacing_rule = config["line_spacing_rule"]
+                    para.alignment = ALIGN_MAP[config["align"]]
+                para.paragraph_format.line_spacing_rule = LINE_SPACING_TYPE_MAP[config["line_type"]]
                 if config["line_type"] == "多倍行距":
                     para.paragraph_format.line_spacing = config["line_value"]
                 elif config["line_type"] == "固定值":
@@ -494,8 +503,8 @@ def process_document(
                         
                         try:
                             if config["align"] is not None:
-                                para.alignment = config["align"]
-                            para.paragraph_format.line_spacing_rule = config["line_spacing_rule"]
+                                para.alignment = ALIGN_MAP[config["align"]]
+                            para.paragraph_format.line_spacing_rule = LINE_SPACING_TYPE_MAP[config["line_type"]]
                             if config["line_type"] == "多倍行距":
                                 para.paragraph_format.line_spacing = config["line_value"]
                             elif config["line_type"] == "固定值":
@@ -525,7 +534,7 @@ def process_document(
         if 'output_path' in locals() and os.path.exists(output_path):
             os.unlink(output_path)
 
-# ====================== Streamlit网页界面（彻底修复固定值乱码）======================
+# ====================== Streamlit网页界面（彻底修复崩溃）======================
 def main():
     st.title("📄 文式通 - Word格式智能处理系统")
     st.warning("⚠️ 重要声明：此工具仅能减少复杂的格式调整工作量，处理完成后仍需您手动与原文进行对比核对，确保内容与格式无误。")
@@ -548,6 +557,7 @@ def main():
     if st.button("📌 应用选中的模板", use_container_width=True):
         st.session_state.format_config = selected_template
         st.success(f"已成功应用【{template_name}】，侧边栏格式参数已同步更新！")
+        st.rerun()
 
     # 侧边栏格式设置
     with st.sidebar:
@@ -574,43 +584,35 @@ def main():
         enable_punctuation_correct = st.checkbox("启用中英文标点规范修正", value=False, disabled=not DOUBAO_API_KEY)
         enable_text_optimize = st.checkbox("启用错别字修正+语句流畅度优化", value=False, disabled=not DOUBAO_API_KEY)
 
-        # 【修复固定值乱码核心】重构行距设置逻辑
+        # 【修复崩溃核心】重构行距设置逻辑，安全匹配对齐方式
         def create_format_config(title, key_prefix, level):
             st.divider()
             st.subheader(title)
             config = format_config[level]
             
-            # 字体、字号、加粗、对齐方式
+            # 字体、字号、加粗
             config["font"] = st.selectbox("字体", list(FONT_MAP.keys()), key=f"{key_prefix}_font", index=list(FONT_MAP.keys()).index(config["font"]))
             config["size"] = st.selectbox("字号", list(FONT_SIZE_MAP.keys()), key=f"{key_prefix}_size", index=list(FONT_SIZE_MAP.keys()).index(config["size"]))
             config["bold"] = st.checkbox("加粗", value=config["bold"], key=f"{key_prefix}_bold")
             
-            align_options = ["不修改", "左对齐", "居中", "两端对齐", "右对齐"]
-            current_align = [k for k, v in {"不修改": None, "左对齐": WD_ALIGN_PARAGRAPH.LEFT, "居中": WD_ALIGN_PARAGRAPH.CENTER, "两端对齐": WD_ALIGN_PARAGRAPH.JUSTIFY, "右对齐": WD_ALIGN_PARAGRAPH.RIGHT}.items() if v == config["align"]][0]
-            config["align"] = st.selectbox("对齐方式", align_options, key=f"{key_prefix}_align", index=align_options.index(current_align))
-            align_map = {
-                "不修改": None,
-                "左对齐": WD_ALIGN_PARAGRAPH.LEFT,
-                "居中": WD_ALIGN_PARAGRAPH.CENTER,
-                "两端对齐": WD_ALIGN_PARAGRAPH.JUSTIFY,
-                "右对齐": WD_ALIGN_PARAGRAPH.RIGHT
-            }
-            config["align"] = align_map[config["align"]]
+            # 【修复崩溃核心】安全的对齐方式匹配
+            current_align_text = ALIGN_REVERSE_MAP.get(ALIGN_MAP.get(config["align"], config["align"]), "不修改")
+            config["align"] = st.selectbox(
+                "对齐方式", 
+                list(ALIGN_MAP.keys()), 
+                key=f"{key_prefix}_align", 
+                index=list(ALIGN_MAP.keys()).index(current_align_text)
+            )
             
-            # 【修复乱码核心】行距类型动态适配
+            # 行距类型设置
             line_type_list = list(LINE_SPACING_TYPE_MAP.keys())
             config["line_type"] = st.selectbox("行距类型", line_type_list, key=f"{key_prefix}_line_type", index=line_type_list.index(config["line_type"]))
-            config["line_spacing_rule"] = LINE_SPACING_TYPE_MAP[config["line_type"]]
             
-            # 动态显示行距数值输入框，切换类型自动重置默认值
+            # 动态行距数值输入
             if config["line_type"] in ["多倍行距", "固定值"]:
-                # 切换类型时，自动更新默认值
-                if config["line_value"] == LINE_TYPE_DEFAULT.get(config["line_type"], config["line_value"]):
-                    config["line_value"] = LINE_TYPE_DEFAULT[config["line_type"]]
-                # 动态设置输入框参数
                 range_config = LINE_TYPE_RANGE[config["line_type"]]
                 config["line_value"] = st.number_input(
-                    "行距数值" if config["line_type"] == "多倍行距" else "固定值(磅)",
+                    "行距倍数" if config["line_type"] == "多倍行距" else "固定值(磅)",
                     min_value=range_config["min"],
                     max_value=range_config["max"],
                     value=float(config["line_value"]),
@@ -618,7 +620,6 @@ def main():
                     key=f"{key_prefix}_line_value"
                 )
             else:
-                # 固定倍数行距，禁用输入框
                 config["line_value"] = LINE_TYPE_DEFAULT[config["line_type"]]
                 st.number_input(
                     "行距倍数",

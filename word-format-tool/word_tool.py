@@ -9,6 +9,9 @@ import os
 import re
 
 # ====================== 全局常量定义 ======================
+# 【在这里替换成你自己的降重智能体链接！】
+YOUR_DOUBAO_AGENT_URL = "https://www.doubao.com/agent/这里替换成你的降重智能体链接"
+
 ALIGN_MAP = {
     "左对齐": WD_ALIGN_PARAGRAPH.LEFT,
     "居中": WD_ALIGN_PARAGRAPH.CENTER,
@@ -206,28 +209,18 @@ def process_number_in_para(para, body_font, body_size, number_config):
     for new_run in new_runs:
         para._element.append(new_run._element)
 
-# ====================== 【专业AI降重】严格遵循你的降重方法论 ======================
+# ====================== AI处理函数 ======================
 def ai_text_handle(text, mode, doubao_key):
     if not doubao_key or not text.strip():
         return text
-    
-    # 降重prompt：完全按照你给的全场景通用降重方法论编写
     if mode == "专业降重":
-        prompt = f"""你是专业学术降重工程师，严格遵循以下降重规则处理文本，仅输出降重后的结果，不解释、不添加额外内容：
-1. 核心原则：破连续字符匹配+破AI生成特征，不改动原意、核心数据、专有名词、法律法规
-2. 语义重构四步法：拆解核心要素→更换叙事逻辑→补充场景化描述→删除套话
-3. 句式要求：1长句搭配1-2短句，制造句式波动，提升困惑度
-4. 替换AI套话：首先/其次→从落地场景来看；综上所述→结合全维度分析；一方面→站在需求端
-5. 注入人类特征：加入合理过渡词、限定范围，避免泛泛而谈
-6. 严禁：同义词替换、中英互译、修改核心术语、大段删减
-原文：{text}"""
+        prompt = f"""严格按学术降重规则处理：1.不破连续字符+破AI特征 2.不改原意、数据、专有名词 3.长短句搭配 4.替换AI套话 5.注入人类写作习惯，仅输出结果：{text}"""
     elif mode == "润色":
-        prompt = f"润色文本，保留原意、结构、换行，语句更流畅，仅输出结果：{text}"
+        prompt = f"润色文本，保留原意结构，仅输出结果：{text}"
     elif mode == "标点修正":
-        prompt = f"修正中英文标点，中文全角、英文半角，保留原意换行，仅输出结果：{text}"
+        prompt = f"修正中英文标点，中文全角英文半角，仅输出结果：{text}"
     elif mode == "错别字修正":
-        prompt = f"修正错别字、语病，优化流畅度，保留原意结构，仅输出结果：{text}"
-    
+        prompt = f"修正错别字语病，保留原意，仅输出结果：{text}"
     try:
         resp = requests.post(DOUBAO_URL, json={
             "model": DOUBAO_MODEL,
@@ -263,8 +256,6 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
             stats[level] += 1
             if level in ["一级标题", "二级标题", "三级标题"]:
                 last_title = level
-            
-            # AI文本处理（含专业降重）
             processed_text = para.text
             if ai_mode == "专业降重":
                 processed_text = ai_text_handle(processed_text, "专业降重", doubao_key)
@@ -276,7 +267,6 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
                 processed_text = ai_text_handle(processed_text, "错别字修正", doubao_key)
             if processed_text != para.text:
                 para.text = processed_text
-            
             cfg = config[level]
             font_size = FONT_SIZE_NUM[cfg["size"]]
             if force_style:
@@ -366,7 +356,7 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
         if 'output_path' in locals() and os.path.exists(output_path):
             os.unlink(output_path)
 
-# ====================== 页面主逻辑（新增专业降重选项） ======================
+# ====================== 页面主逻辑（含降重智能体直达） ======================
 def main():
     st.set_page_config(page_title="文式通 - Word格式智能处理系统", layout="wide")
     if "current_config" not in st.session_state:
@@ -379,6 +369,12 @@ def main():
     st.title("📄 文式通 - Word格式智能处理系统")
     st.warning("⚠️ 重要声明：此工具仅能减少复杂的格式调整工作量，处理完成后仍需您手动与原文进行对比核对，确保内容与格式无误。")
     st.markdown("✅ 100%保留图片/目录/原排版 | ✅ 高校论文格式一键适配 | ✅ 专业AI降重 | ✅ 标点规范/错别字修正")
+
+    # 【主界面：一键直达你的降重智能体】
+    st.markdown("---")
+    st.subheader("⚡ 快速降重通道")
+    st.link_button("🚀 打开我的专属「降重」智能体", YOUR_DOUBAO_AGENT_URL, use_container_width=True, type="primary")
+    st.markdown("---")
 
     # 模板选择
     st.subheader("📋 一键套用标准格式模板")
@@ -416,17 +412,26 @@ def main():
 
         st.divider()
         st.subheader("🔤 AI文本优化（含专业降重）")
-        st.text_input("豆包API密钥", type="password", key="doubao_api_key", placeholder="输入密钥启用AI功能")
-        DOUBAO_KEY = st.session_state.get("doubao_api_key", "") or st.secrets.get("DOUBAO_API_KEY", "")
+        # 侧边栏也加直达按钮
+        st.link_button("🧠 打开我的降重智能体", YOUR_DOUBAO_AGENT_URL, use_container_width=True)
         
+        # 【修复假解锁：严格校验密钥格式】
+        st.text_input("豆包API密钥（火山引擎sk-开头）", type="password", key="doubao_api_key", placeholder="请输入火山引擎API密钥，格式：sk-xxxxxx")
+        user_key = st.session_state.get("doubao_api_key", "")
+        env_key = st.secrets.get("DOUBAO_API_KEY", "")
+        DOUBAO_KEY = user_key or env_key
+        is_valid_key = DOUBAO_KEY.startswith("sk-") if DOUBAO_KEY else False
+
         if not DOUBAO_KEY:
-            st.info("ℹ️ 填写API密钥即可启用降重/润色功能")
-        fix_punctuation = st.checkbox("修正中英文标点", False, disabled=not DOUBAO_KEY)
-        fix_text = st.checkbox("修正错别字/语病", False, disabled=not DOUBAO_KEY)
+            st.info("ℹ️ 请输入火山引擎API密钥（以sk-开头）启用降重/润色功能")
+        elif not is_valid_key:
+            st.warning("⚠️ 你输入的不是有效的豆包API密钥！密钥格式应为 sk-xxxxxx，请检查后重新输入")
         
-        # 新增：专业降重选项
+        fix_punctuation = st.checkbox("修正中英文标点", False, disabled=not is_valid_key)
+        fix_text = st.checkbox("修正错别字/语病", False, disabled=not is_valid_key)
+        
         ai_mode = "不使用AI"
-        if DOUBAO_KEY:
+        if is_valid_key:
             ai_mode = st.radio("AI处理模式", ["不使用AI", "润色", "专业降重"], horizontal=True)
 
         # 格式块生成

@@ -387,9 +387,10 @@ def main():
             "选择学校模板", 
             list(UNIVERSITY_TPL.keys()), 
             index=0,
-            key="uni_tpl",
-            on_change=lambda: st.session_state.update({"current_selected_tpl": st.session_state.uni_tpl})
+            key="uni_tpl"
         )
+        # 关键修复：切换标签页时，自动同步当前标签页的模板名
+        st.session_state.current_selected_tpl = tpl_name
         target_config = UNIVERSITY_TPL[tpl_name]
         st.caption("包含：河北科大、河北工大、国家标准等。")
 
@@ -399,9 +400,10 @@ def main():
             "选择办公模板", 
             list(GENERAL_TPL.keys()), 
             index=0,
-            key="gen_tpl",
-            on_change=lambda: st.session_state.update({"current_selected_tpl": st.session_state.gen_tpl})
+            key="gen_tpl"
         )
+        # 关键修复：切换标签页时，自动同步当前标签页的模板名
+        st.session_state.current_selected_tpl = tpl_name
         target_config = GENERAL_TPL[tpl_name]
 
     # 党政公文标签页
@@ -410,12 +412,13 @@ def main():
             "选择公文模板", 
             list(OFFICIAL_TPL.keys()), 
             index=0,
-            key="off_tpl",
-            on_change=lambda: st.session_state.update({"current_selected_tpl": st.session_state.off_tpl})
+            key="off_tpl"
         )
+        # 关键修复：切换标签页时，自动同步当前标签页的模板名
+        st.session_state.current_selected_tpl = tpl_name
         target_config = OFFICIAL_TPL[tpl_name]
 
-    # 修复后的按钮：文字实时同步当前选中的模板
+    # 按钮文字现在100%同步当前标签页的模板
     if st.button(f"✅ 应用【{st.session_state.current_selected_tpl}】模板", type="primary"):
         st.session_state.current_config = target_config
         st.session_state.template_version += 1

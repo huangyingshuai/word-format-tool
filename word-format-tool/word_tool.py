@@ -45,19 +45,26 @@ EN_FONT_LIST = ["和正文一致", "Times New Roman", "Arial", "Calibri"]
 TITLE_RULE = {
     "一级标题": re.compile(r"^[一二三四五六七八九十]+、\s*.{0,40}$|^第[一二三四五六七八九十]+章\s*.{0,40}$|^第\d+章\s*.{0,40}$|^\d+、\s*.{0,40}$"),
     "二级标题": re.compile(r"^[（(][一二三四五六七八九十]+[）)]\s*.{0,50}$|^\d+\.\s+.{0,50}$|^\d+、\s*.{0,50}$"),
-    "三级标题": re.compile(r"^[（(]\d+[）)]\s*.{0,60}$|^\d+\.\d+\s+.{0,60}$|^\d+\.\d+\.\d+\s*.{0,60}$|^\d+\）\s*.{0,60}$")
+    "三级标题": re.compile(r"^[（(]\d+[）)]\s*.{0,60}$|^\d+\.\d+\s+.{0,60}$|^\d+\.\d+\.\d+\s+.{0,60}$|^\d+\）\s*.{0,60}$")
 }
 
 DOUBAO_MODEL = "ep-20250628104918-7rqxd"
 DOUBAO_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
 
-# ====================== 模板库 ======================
+# ====================== 模板库（已修复燕山大学+新增so free大学） ======================
 GENERAL_TPL = {
     "默认通用格式": {
         "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
         "二级标题": {"font": "黑体", "size": "三号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
         "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
         "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 2},
+        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1.0, "indent": 0}
+    },
+    "so free大学-本科毕业论文": {  # 新增模板
+        "一级标题": {"font": "微软雅黑", "size": "小二号", "bold": True, "align": "居中", "line_type": "固定值", "line_value": 25.0, "indent": 0},
+        "二级标题": {"font": "微软雅黑", "size": "小三号", "bold": True, "align": "左对齐", "line_type": "固定值", "line_value": 22.0, "indent": 0},
+        "三级标题": {"font": "微软雅黑", "size": "四号", "bold": True, "align": "左对齐", "line_type": "固定值", "line_value": 20.0, "indent": 0},
+        "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "1.5倍行距", "line_value": 1.5, "indent": 2},
         "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1.0, "indent": 0}
     }
 }
@@ -76,6 +83,13 @@ UNIVERSITY_TPL = {
         "三级标题": {"font": "楷体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
         "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "多倍行距", "line_value": 1.5, "indent": 2},
         "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "单倍行距", "line_value": 1.0, "indent": 0}
+    },
+    "燕山大学-本科毕业论文（官方标准）": {  # 已修复！根据燕山大学2017版撰写规范
+        "一级标题": {"font": "黑体", "size": "小二号", "bold": True, "align": "居中", "line_type": "固定值", "line_value": 25.0, "indent": 0},  # 章标题：小二号黑体
+        "二级标题": {"font": "黑体", "size": "小三号", "bold": True, "align": "左对齐", "line_type": "固定值", "line_value": 22.0, "indent": 0},  # 节标题：小三号黑体
+        "三级标题": {"font": "黑体", "size": "四号", "bold": True, "align": "左对齐", "line_type": "固定值", "line_value": 20.0, "indent": 0},  # 条标题：四号黑体
+        "正文": {"font": "宋体", "size": "小四", "bold": False, "align": "两端对齐", "line_type": "固定值", "line_value": 20.0, "indent": 2},  # 正文：小四宋体，固定值20磅
+        "表格": {"font": "宋体", "size": "五号", "bold": False, "align": "居中", "line_type": "固定值", "line_value": 18.0, "indent": 0}
     },
     "国标-本科毕业论文通用": {
         "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
@@ -388,7 +402,7 @@ def main():
             key="uni_tpl"
         )
         target_config = UNIVERSITY_TPL[tpl_name]
-        st.caption("包含：河北科大、河北工大、国家标准等。修改格式后会自动保存，切换标签页不会丢失。")
+        st.caption("包含：河北科大、河北工大、燕山大学（官方标准）、国家标准等。修改格式后会自动保存，切换标签页不会丢失。")
 
     # 通用办公标签页
     with tab2:

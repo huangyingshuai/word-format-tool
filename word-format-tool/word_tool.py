@@ -42,13 +42,13 @@ EN_FONT_LIST = ["和正文一致", "Times New Roman", "Arial", "Calibri"]
 TITLE_RULE = {
     "一级标题": re.compile(r"^[一二三四五六七八九十]+、\s*.{0,40}$|^第[一二三四五六七八九十]+章\s*.{0,40}$|^第\d+章\s*.{0,40}$|^\d+、\s*.{0,40}$"),
     "二级标题": re.compile(r"^[（(][一二三四五六七八九十]+[）)]\s*.{0,50}$|^\d+\.\s+.{0,50}$|^\d+、\s*.{0,50}$"),
-    "三级标题": re.compile(r"^[（(]\d+[）)]\s*.{0,60}$|^\d+\.\d+\s+.{0,60}$|^\d+\.\d+\.\d+\s*.{0,60}$|^\d+\）\s*.{0,60}$")
+    "三级标题": re.compile(r"^[（(]\d+[）)]\s*.{0,60}$|^\d+\.\d+\s+.{0,60}$|^\d+\.\d+\.\d+\s+.{0,60}$|^\d+\）\s*.{0,60}$")
 }
 
 DOUBAO_MODEL = "ep-20250628104918-7rqxd"
 DOUBAO_URL = "https://ark.cn-beijing.volces.com/api/v3/chat/completions"
 
-# ====================== 高校/公文格式模板库 ======================
+# ====================== 模板库 ======================
 GENERAL_TPL = {
     "默认格式": {
         "一级标题": {"font": "黑体", "size": "二号", "bold": True, "align": "居中", "line_type": "多倍行距", "line_value": 1.5, "indent": 0},
@@ -206,22 +206,19 @@ def process_number_in_para(para, body_font, body_size, number_config):
     for new_run in new_runs:
         para._element.append(new_run._element)
 
-# ====================== AI处理函数 ======================
 def ai_text_handle(text, mode, doubao_key):
     if not doubao_key or not text.strip():
         return text
-    if mode == "专业降重":
-        prompt = f"""严格按学术降重规则处理：1.不破连续字符+破AI特征 2.不改原意、数据、专有名词 3.长短句搭配 4.替换AI套话 5.注入人类写作习惯，仅输出结果：{text}"""
-    elif mode == "润色":
-        prompt = f"润色文本，保留原意结构，仅输出结果：{text}"
-    elif mode == "标点修正":
-        prompt = f"修正中英文标点，中文全角英文半角，仅输出结果：{text}"
-    elif mode == "错别字修正":
-        prompt = f"修正错别字语病，保留原意，仅输出结果：{text}"
+    prompt_map = {
+        "润色": "润色文本，保留原意、结构、换行，仅输出结果",
+        "降重": "降重改写，保留原意、结构、换行，仅输出结果",
+        "标点修正": "修正中英文标点，中文用全角，英文数字用半角，保留原意、换行，仅输出结果",
+        "错别字修正": "修正错别字、语病，优化流畅度，保留原意、结构、换行，仅输出结果"
+    }
     try:
         resp = requests.post(DOUBAO_URL, json={
             "model": DOUBAO_MODEL,
-            "messages": [{"role": "user", "content": prompt}]
+            "messages": [{"role": "user", "content": f"{prompt_map[mode]}\n原文：{text}"}]
         }, headers={"Authorization": f"Bearer {doubao_key}"}, timeout=30)
         resp.raise_for_status()
         return resp.json()["choices"][0]["message"]["content"]
@@ -254,10 +251,8 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
             if level in ["一级标题", "二级标题", "三级标题"]:
                 last_title = level
             processed_text = para.text
-            if ai_mode == "专业降重":
-                processed_text = ai_text_handle(processed_text, "专业降重", doubao_key)
-            elif ai_mode == "润色":
-                processed_text = ai_text_handle(processed_text, "润色", doubao_key)
+            if ai_mode != "不使用AI":
+                processed_text = ai_text_handle(processed_text, ai_mode, doubao_key)
             if fix_punctuation:
                 processed_text = ai_text_handle(processed_text, "标点修正", doubao_key)
             if fix_text:
@@ -365,30 +360,24 @@ def main():
 
     st.title("📄 文式通 - Word格式智能处理系统")
     st.warning("⚠️ 重要声明：此工具仅能减少复杂的格式调整工作量，处理完成后仍需您手动与原文进行对比核对，确保内容与格式无误。")
-    st.markdown("✅ 100%保留图片/目录/原排版 | ✅ 高校论文格式一键适配 | ✅ 专业AI降重 | ✅ 标点规范/错别字修正")
+    st.markdown("✅ 100%保留图片/目录/原排版 | ✅ 高校论文格式一键适配 | ✅ 标点规范/错别字修正 | ✅ 全国大学生计算机设计大赛参赛作品")
 
-    # ====================== 模板选择（修改为手动应用模式） ======================
     st.subheader("📋 一键套用标准格式模板")
     tpl_type = st.radio("模板类型", ["通用办公模板", "高校毕业论文模板", "党政公文模板"], horizontal=True)
-    tpl_dict = GENERAL_TPL if tpl_type == "通用办公模板" else UNIVERSITY_TPL if tpl_type == "高校毕业论文模板" else OFFICIAL_TPL
+    if tpl_type == "通用办公模板":
+        tpl_dict = GENERAL_TPL
+    elif tpl_type == "高校毕业论文模板":
+        tpl_dict = UNIVERSITY_TPL
+    else:
+        tpl_dict = OFFICIAL_TPL
     tpl_name = st.selectbox("选择目标格式", list(tpl_dict.keys()), index=0)
     target_config = tpl_dict[tpl_name]
-
-    # 手动应用模板按钮
-    col1, col2 = st.columns([1, 3])
-    with col1:
-        apply_tpl = st.button("✅ 应用选中模板", type="primary", use_container_width=True)
-    with col2:
-        st.caption("选择模板后点击按钮应用，左侧格式参数会同步更新")
-
-    # 点击按钮后生效模板
-    if apply_tpl:
+    if st.session_state.current_config != target_config:
         st.session_state.current_config = target_config
         st.session_state.template_version += 1
-        st.success(f"✅ 已成功应用【{tpl_name}】模板，左侧格式参数已同步更新！")
+        st.success(f"✅ 已自动应用【{tpl_name}】，左侧格式参数已同步更新！")
         st.rerun()
 
-    # 侧边栏设置
     with st.sidebar:
         st.header("🎨 详细格式设置")
         cfg = st.session_state.current_config
@@ -407,60 +396,55 @@ def main():
         st.divider()
         st.subheader("📄 空行清理设置")
         clear_blank = st.checkbox("清除多余空行", value=False)
-        max_blank = st.slider("最多保留连续空行数", 0, 2, 1) if clear_blank else 1
+        max_blank = st.slider("最多保留连续空行数", min_value=0, max_value=2, value=1) if clear_blank else 1
 
         st.divider()
-        st.subheader("🔤 AI文本优化（含专业降重）")
-        st.text_input("豆包API密钥（火山引擎sk-开头）", type="password", key="doubao_api_key", placeholder="请输入火山引擎API密钥，格式：sk-xxxxxx")
-        user_key = st.session_state.get("doubao_api_key", "")
-        env_key = st.secrets.get("DOUBAO_API_KEY", "")
-        DOUBAO_KEY = user_key or env_key
-        is_valid_key = DOUBAO_KEY.startswith("sk-") if DOUBAO_KEY else False
-
+        st.subheader("🔤 文本优化设置")
+        st.text_input("豆包API密钥", type="password", key="doubao_api_key", placeholder="请输入你的豆包API密钥")
+        DOUBAO_KEY = st.session_state.get("doubao_api_key", "") or st.secrets.get("DOUBAO_API_KEY", "")
         if not DOUBAO_KEY:
-            st.info("ℹ️ 请输入火山引擎API密钥（以sk-开头）启用降重/润色功能")
-        elif not is_valid_key:
-            st.warning("⚠️ 你输入的不是有效的豆包API密钥！密钥格式应为 sk-xxxxxx，请检查后重新输入")
-        
-        fix_punctuation = st.checkbox("修正中英文标点", False, disabled=not is_valid_key)
-        fix_text = st.checkbox("修正错别字/语病", False, disabled=not is_valid_key)
-        
+            st.info("ℹ️ 填写豆包API密钥即可启用以下功能")
+        fix_punctuation = st.checkbox("启用中英文标点规范修正", value=False, disabled=not DOUBAO_KEY)
+        fix_text = st.checkbox("启用错别字修正+语句流畅度优化", value=False, disabled=not DOUBAO_KEY)
         ai_mode = "不使用AI"
-        if is_valid_key:
-            ai_mode = st.radio("AI处理模式", ["不使用AI", "润色", "专业降重"], horizontal=True)
+        if DOUBAO_KEY:
+            ai_mode = st.radio("AI文本处理", ["不使用AI", "润色", "降重"], horizontal=True)
 
-        # 格式块生成
         def create_format_block(title, level):
             st.divider()
             st.subheader(title)
             item = cfg[level]
             version = st.session_state.template_version
-            
-            font_idx = FONT_LIST.index(item["font"]) if item["font"] in FONT_LIST else 0
-            item["font"] = st.selectbox("字体", FONT_LIST, key=f"{level}_font_{version}", index=font_idx)
-            size_idx = FONT_SIZE_LIST.index(item["size"]) if item["size"] in FONT_SIZE_LIST else 0
-            item["size"] = st.selectbox("字号", FONT_SIZE_LIST, key=f"{level}_size_{version}", index=size_idx)
-            item["bold"] = st.checkbox("加粗", item["bold"], key=f"{level}_bold_{version}")
-            align_idx = ALIGN_LIST.index(item["align"]) if item["align"] in ALIGN_LIST else 0
-            item["align"] = st.selectbox("对齐方式", ALIGN_LIST, key=f"{level}_align_{version}", index=align_idx)
-            
-            line_type_idx = LINE_TYPE_LIST.index(item["line_type"]) if item["line_type"] in LINE_TYPE_LIST else 0
-            new_line_type = st.selectbox("行距类型", LINE_TYPE_LIST, key=f"{level}_line_type_{version}", index=line_type_idx)
+            font_index = FONT_LIST.index(item["font"]) if item["font"] in FONT_LIST else 0
+            item["font"] = st.selectbox("字体", FONT_LIST, key=f"{level}_font_{version}", index=font_index)
+            size_index = FONT_SIZE_LIST.index(item["size"]) if item["size"] in FONT_SIZE_LIST else 0
+            item["size"] = st.selectbox("字号", FONT_SIZE_LIST, key=f"{level}_size_{version}", index=size_index)
+            item["bold"] = st.checkbox("加粗", value=item["bold"], key=f"{level}_bold_{version}")
+            align_index = ALIGN_LIST.index(item["align"]) if item["align"] in ALIGN_LIST else 0
+            item["align"] = st.selectbox("对齐方式", ALIGN_LIST, key=f"{level}_align_{version}", index=align_index)
+            line_type_index = LINE_TYPE_LIST.index(item["line_type"]) if item["line_type"] in LINE_TYPE_LIST else 0
+            new_line_type = st.selectbox("行距类型", LINE_TYPE_LIST, key=f"{level}_line_type_{version}", index=line_type_index)
             if new_line_type != item["line_type"]:
                 item["line_type"] = new_line_type
                 item["line_value"] = LINE_RULE[new_line_type]["default"]
                 st.session_state.current_config[level] = item
                 st.rerun()
-            
             line_rule = LINE_RULE[item["line_type"]]
-            curr_val = float(item["line_value"])
-            if not (line_rule["min"] <= curr_val <= line_rule["max"]):
-                curr_val = line_rule["default"]
-                item["line_value"] = curr_val
-            item["line_value"] = st.number_input(line_rule["label"], line_rule["min"], line_rule["max"], curr_val, line_rule["step"], key=f"{level}_line_value_{version}", disabled=line_rule["min"]==line_rule["max"])
-            
+            current_value = float(item["line_value"])
+            if not (line_rule["min"] <= current_value <= line_rule["max"]):
+                current_value = line_rule["default"]
+                item["line_value"] = current_value
+            item["line_value"] = st.number_input(
+                line_rule["label"],
+                min_value=float(line_rule["min"]),
+                max_value=float(line_rule["max"]),
+                value=float(current_value),
+                step=float(line_rule["step"]),
+                key=f"{level}_line_value_{version}",
+                disabled=line_rule["min"] == line_rule["max"]
+            )
             if "indent" in item:
-                item["indent"] = st.number_input("首行缩进(字符)", 0,4,item["indent"],key=f"{level}_indent_{version}")
+                item["indent"] = st.number_input("首行缩进(字符)", min_value=0, max_value=4, value=item["indent"], key=f"{level}_indent_{version}")
             st.session_state.current_config[level] = item
             return item
 
@@ -470,48 +454,66 @@ def main():
         create_format_block("📝 正文内容", "正文")
         create_format_block("📊 表格内容", "表格")
 
-        # 数字格式
         st.divider()
         st.subheader("🔢 正文数字格式设置")
-        number_config = {"enable": st.checkbox("启用数字单独格式", True, key=f"num_en_{st.session_state.template_version}")}
+        number_config = {}
+        number_config["enable"] = st.checkbox("启用数字单独格式设置", value=True, key=f"number_enable_{st.session_state.template_version}")
         if number_config["enable"]:
-            number_config["font"] = st.selectbox("数字字体", EN_FONT_LIST, 0, key=f"num_font_{st.session_state.template_version}")
-            number_config["size_same_as_body"] = st.checkbox("字号同正文", True, key=f"num_size_{st.session_state.template_version}")
-            number_config["size"] = st.selectbox("数字字号", FONT_SIZE_LIST, FONT_SIZE_LIST.index("小四"), key=f"num_size_val_{st.session_state.template_version}") if not number_config["size_same_as_body"] else "小四"
-            number_config["bold"] = st.checkbox("数字加粗", False, key=f"num_bold_{st.session_state.template_version}")
+            number_config["font"] = st.selectbox("数字字体", EN_FONT_LIST, index=0, key=f"number_font_{st.session_state.template_version}")
+            number_config["size_same_as_body"] = st.checkbox("字号和正文一致", value=True, key=f"number_size_same_{st.session_state.template_version}")
+            if not number_config["size_same_as_body"]:
+                number_config["size"] = st.selectbox("数字字号", FONT_SIZE_LIST, index=FONT_SIZE_LIST.index("小四"), key=f"number_size_{st.session_state.template_version}")
+            else:
+                number_config["size"] = "小四"
+            number_config["bold"] = st.checkbox("数字加粗", value=False, key=f"number_bold_{st.session_state.template_version}")
 
-    # 主界面上传处理
-    uploaded_file = st.file_uploader("📤 上传Word文档（.docx）", type="docx")
+    uploaded_file = st.file_uploader("📤 上传Word文档（仅支持.docx格式）", type="docx")
     if uploaded_file:
         st.success("✅ 文档上传成功！")
-        if st.button("🚀 开始处理（格式调整+AI降重/润色）", type="primary", use_container_width=True):
-            bar = st.progress(0, "准备处理...")
+        if st.button("🚀 开始处理文档", type="primary", use_container_width=True):
+            progress_bar = st.progress(0, text="文档处理准备中...")
             try:
-                bar.progress(10, "解析文档结构")
-                data, stats = process_doc(uploaded_file, cfg, number_config, ai_mode, enable_title_regex, force_style, keep_spacing, clear_blank, max_blank, fix_punctuation, fix_text, DOUBAO_KEY)
-                bar.progress(80, "生成处理后文档")
-                if data and stats:
-                    bar.progress(100, "处理完成！")
-                    st.subheader("📋 文档识别统计")
-                    c1,c2,c3,c4,c5,c6 = st.columns(6)
-                    c1.metric("一级标题", stats["一级标题"])
-                    c2.metric("二级标题", stats["二级标题"])
-                    c3.metric("三级标题", stats["三级标题"])
-                    c4.metric("正文段落", stats["正文"])
-                    c5.metric("表格", stats["表格"])
-                    c6.metric("图片", stats["图片"])
-                    
-                    st.download_button("📥 下载处理完成文档", data, f"降重排版完成_{uploaded_file.name}", use_container_width=True)
-                    st.success("🎉 文档处理完成！")
+                progress_bar.progress(10, text="正在解析文档...")
+                file_bytes, stats = process_doc(
+                    uploaded_file, cfg, number_config, ai_mode, enable_title_regex, force_style, keep_spacing, clear_blank, max_blank, fix_punctuation, fix_text, DOUBAO_KEY
+                )
+                progress_bar.progress(80, text="文档处理完成，正在生成下载文件...")
+                if file_bytes and stats:
+                    progress_bar.progress(100, text="处理完成！")
+                    st.subheader("📋 文档内容分类识别结果")
+                    cols = st.columns(6)
+                    cols[0].metric("一级标题", stats["一级标题"])
+                    cols[1].metric("二级标题", stats["二级标题"])
+                    cols[2].metric("三级标题", stats["三级标题"])
+                    cols[3].metric("正文段落", stats["正文"])
+                    cols[4].metric("表格数量", stats["表格"])
+                    cols[5].metric("图片数量", stats["图片"])
+                    st.info("ℹ️ 再次提醒：此工具仅能减少格式调整工作量，下载后请务必与原文档进行对比核对，确认内容与格式无误。")
+                    st.download_button(
+                        label="📥 下载处理完成的文档",
+                        data=file_bytes,
+                        file_name=f"格式调整完成_{uploaded_file.name}",
+                        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        use_container_width=True,
+                        type="secondary"
+                    )
+                    st.success("🎉 文档处理完成！点击上方按钮下载")
             except Exception as e:
-                st.error(f"失败：{str(e)}")
+                st.error(f"文档处理失败：{str(e)}")
             finally:
-                bar.empty()
+                progress_bar.empty()
 
     st.divider()
-    with st.expander("📖 版权与声明"):
-        st.markdown("本作品为大学生计算机设计大赛参赛作品，基于Streamlit、python-docx开发，遵守开源协议。")
-        st.markdown("⚠️ 降重后内容建议人工核对，确保学术规范与原意一致。")
+    with st.expander("📖 关于本作品 | 开源版权声明"):
+        st.markdown("""
+        本作品为全国大学生计算机设计大赛参赛作品，是一款面向大学生与办公人群的Word文档格式智能处理工具，旨在解决文档格式调整耗时费力、格式不规范的行业痛点。
+        本作品使用的开源组件及对应协议：
+        - Streamlit（Apache 2.0协议）
+        - python-docx（MIT协议）
+        - requests（Apache 2.0协议）
+        所有开源组件均已遵守对应开源协议要求，无侵权行为。
+        """)
+        st.markdown("⚠️ 工具声明：本工具仅能减少复杂的格式调整工作量，处理完成后仍需与原文进行对比核对，确保内容与格式无误。")
 
 if __name__ == "__main__":
     main()

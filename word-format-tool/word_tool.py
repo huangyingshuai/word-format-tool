@@ -8,6 +8,7 @@ import tempfile
 import os
 import re
 from tenacity import retry, stop_after_attempt, wait_exponential
+from datetime import datetime
 
 # ====================== 全局常量定义 ======================
 ALIGN_MAP = {
@@ -359,12 +360,16 @@ def process_doc(uploaded_file, config, number_config, ai_mode, enable_title_rege
 # ====================== 页面主逻辑 ======================
 def main():
     st.set_page_config(page_title="文式通 - Word格式智能处理系统", layout="wide", page_icon="📄")
+    
+    # 初始化session_state变量
     if "current_config" not in st.session_state:
         st.session_state.current_config = GENERAL_TPL["默认通用格式"]
     if "template_version" not in st.session_state:
         st.session_state.template_version = 0
     if "doubao_api_key" not in st.session_state:
         st.session_state.doubao_api_key = st.secrets.get("DOUBAO_API_KEY", "")
+    if "current_selected_tpl" not in st.session_state:
+        st.session_state.current_selected_tpl = "默认通用格式"
 
     st.title("📄 文式通 - Word格式智能处理系统")
     st.info("💡 **使用指南**：1️⃣ 选模板 → 2️⃣ 精细调整格式 → 3️⃣ 上传文档 → 4️⃣ 下载。图片/表格/结构100%保留！")
@@ -372,23 +377,49 @@ def main():
 
     st.subheader("Step 1: 选择适用场景 📋")
     tab1, tab2, tab3 = st.tabs(["🎓 高校毕业论文", "💼 通用办公", "🏛️ 党政公文"])
+    
     target_config = None
     tpl_name = "默认通用格式"
+
+    # 高校毕业论文标签页
     with tab1:
-        tpl_name = st.selectbox("选择学校模板", list(UNIVERSITY_TPL.keys()), index=0)
+        tpl_name = st.selectbox(
+            "选择学校模板", 
+            list(UNIVERSITY_TPL.keys()), 
+            index=0,
+            key="uni_tpl",
+            on_change=lambda: st.session_state.update({"current_selected_tpl": st.session_state.uni_tpl})
+        )
         target_config = UNIVERSITY_TPL[tpl_name]
         st.caption("包含：河北科大、河北工大、国家标准等。")
+
+    # 通用办公标签页
     with tab2:
-        tpl_name = st.selectbox("选择办公模板", list(GENERAL_TPL.keys()), index=0)
+        tpl_name = st.selectbox(
+            "选择办公模板", 
+            list(GENERAL_TPL.keys()), 
+            index=0,
+            key="gen_tpl",
+            on_change=lambda: st.session_state.update({"current_selected_tpl": st.session_state.gen_tpl})
+        )
         target_config = GENERAL_TPL[tpl_name]
+
+    # 党政公文标签页
     with tab3:
-        tpl_name = st.selectbox("选择公文模板", list(OFFICIAL_TPL.keys()), index=0)
+        tpl_name = st.selectbox(
+            "选择公文模板", 
+            list(OFFICIAL_TPL.keys()), 
+            index=0,
+            key="off_tpl",
+            on_change=lambda: st.session_state.update({"current_selected_tpl": st.session_state.off_tpl})
+        )
         target_config = OFFICIAL_TPL[tpl_name]
 
-    if st.button(f"✅ 应用【{tpl_name}】模板", type="primary"):
+    # 修复后的按钮：文字实时同步当前选中的模板
+    if st.button(f"✅ 应用【{st.session_state.current_selected_tpl}】模板", type="primary"):
         st.session_state.current_config = target_config
         st.session_state.template_version += 1
-        st.success(f"🎉 已成功应用模板！可在右侧高级设置中继续微调。")
+        st.success(f"🎉 已成功应用【{st.session_state.current_selected_tpl}】模板！可在右侧高级设置中继续微调。")
         st.rerun()
 
     st.divider()
@@ -427,7 +458,7 @@ def main():
             if is_valid_key:
                 ai_mode = st.radio("AI处理模式", ["不使用AI", "润色", "专业降重"], horizontal=True)
 
-        # ====================== 核心改造：完整开放所有格式项 ======================
+        # 完整格式设置模块
         with st.expander("✏️ 完整格式设置（每一项都可调）", expanded=True):
             st.caption("**图片/表格/原有结构绝对不变，只改文字格式**")
             def create_full_format_block(title, level, show_indent=True):
@@ -513,7 +544,6 @@ def main():
                     c4.metric("正文段落", stats["正文"])
                     c5.metric("表格", stats["表格"])
                     c6.metric("图片", stats["图片"])
-                    from datetime import datetime
                     current_time = datetime.now().strftime("%Y%m%d_%H%M%S")
                     new_filename = f"排版完成_{current_time}_{uploaded_file.name}"
                     st.download_button("📥 下载处理后的文档", data, new_filename, use_container_width=True)
@@ -523,7 +553,7 @@ def main():
     with st.expander("❓ 常见问题 & 关于"):
         st.markdown("""
         *   **Q: 图片/表格会被修改吗？**
-            A: **绝对不会！** 代码中 `is_protected_para` 函数会识别并保护所有图片、分页符、分节符、表格结构，只修改文字格式。
+            A: **绝对不会！** 代码中 `is_protected_para` 函数会识别并保护所有图片、分页符、分节符、域代码（目录/页码），只修改文字格式。
         *   **Q: 我可以只改某一级标题吗？**
             A: 完全可以！每一级标题、正文、表格、数字都有独立的设置项，互不影响。
         *   **Q: 没有API密钥还能用吗？**

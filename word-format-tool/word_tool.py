@@ -8,16 +8,21 @@ import os
 import re
 import random
 
-# ====================== 全局常量配置 ======================
+# ====================== 全局常量配置（已修复行距枚举错误） ======================
 COZE_BOT_URL = "https://www.coze.cn/s/Dtw5_DzeCIo/"
 ALIGN_MAP = {
     "左对齐": WD_ALIGN_PARAGRAPH.LEFT, "居中": WD_ALIGN_PARAGRAPH.CENTER,
     "两端对齐": WD_ALIGN_PARAGRAPH.JUSTIFY, "右对齐": WD_ALIGN_PARAGRAPH.RIGHT, "不修改": None
 }
 ALIGN_LIST = list(ALIGN_MAP.keys())
+
+# ✅ 修复：行距使用 WD_LINE_SPACING 枚举
 LINE_TYPE_MAP = {
-    "单倍行距": WD_ALIGN_PARAGRAPH.SINGLE, "1.5倍行距": WD_ALIGN_PARAGRAPH.ONE_POINT_FIVE,
-    "2倍行距": WD_ALIGN_PARAGRAPH.DOUBLE, "多倍行距": WD_ALIGN_PARAGRAPH.MULTIPLE, "固定值": WD_ALIGN_PARAGRAPH.EXACTLY
+    "单倍行距": WD_LINE_SPACING.SINGLE,
+    "1.5倍行距": WD_LINE_SPACING.ONE_POINT_FIVE,
+    "2倍行距": WD_LINE_SPACING.DOUBLE,
+    "多倍行距": WD_LINE_SPACING.MULTIPLE,
+    "固定值": WD_LINE_SPACING.EXACTLY
 }
 LINE_TYPE_LIST = list(LINE_TYPE_MAP.keys())
 LINE_RULE = {
@@ -32,7 +37,7 @@ FONT_SIZE_LIST = ["初号","小初","一号","小一","二号","小二","三号"
 FONT_SIZE_NUM = {k:v for k,v in zip(FONT_SIZE_LIST,[42.0,36.0,26.0,24.0,22.0,18.0,16.0,15.0,14.0,12.0,10.5,9.0,7.5,6.5])}
 EN_FONT_LIST = ["和正文一致","Times New Roman","Arial","Calibri"]
 
-# 标题识别正则（精准区分冗长文本中的标题/正文）
+# 标题识别正则
 TITLE_PATTERNS = {
     "一级标题": re.compile(r'^[一二三四五六七八九十]{1,}、.*|^第[一二三四五六七八九十1-9]+[章节篇部分].*|^[1-9]\d*\..*'),
     "二级标题": re.compile(r'^（[一二三四五六七八九十]{1,}）.*|^\([1-9]\d*\).*|^[1-9]\d*\.[1-9]\d*\s.*'),
@@ -64,7 +69,7 @@ UNIVERSITY_TPL = {
 OFFICIAL_TPL = {"党政机关公文国标GB/T 7714-2012模板": GENERAL_TPL["默认格式"]}
 
 # ====================== 核心功能函数 ======================
-# 1. 智能识别标题/正文（支持冗长文本自动拆分）
+# 1. 智能识别标题/正文
 def smart_recognize_level(text):
     if not text.strip():
         return "正文"
@@ -78,7 +83,7 @@ def smart_recognize_level(text):
     else:
         return "正文"
 
-# 2. 全场景降重方法论引擎（破连续字符+语义指纹）
+# 2. 全场景降重方法论引擎
 def rewrite_by_plagiarism_logic(text):
     text = re.sub(r'\s+', ' ', text)
     s_list = re.split(r'[。！？；]', text)
@@ -93,7 +98,7 @@ def rewrite_by_plagiarism_logic(text):
         res.append(s)
     return '。'.join(res)+'。'
 
-# 3. 人类写作特征注入引擎（8大核心特征）
+# 3. 人类写作特征注入引擎
 def inject_human_writing_features(text):
     if len(text) < 5: return text
     if random.random()>0.5:
@@ -147,7 +152,7 @@ def process_number_font(para, body_font, body_size, num_cfg):
     for nr in new_runs: para._element.append(nr._element)
 
 # 6. 文档处理主函数（零错误兼容）
-def process_doc(uf, cfg, num_cfg, enable_plagiarism_rule, enable_human_rule, ai_mode, force_style, keep_space, clear_blank, max_blank):
+def process_doc(uf, cfg, num_cfg, enable_plagiarism_rule, enable_human_rule, force_style, keep_space, clear_blank, max_blank):
     try:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".docx") as tmp:
             tmp.write(uf.getvalue())
@@ -158,10 +163,8 @@ def process_doc(uf, cfg, num_cfg, enable_plagiarism_rule, enable_human_rule, ai_
         for para in doc.paragraphs:
             text = para.text.strip()
             if not text: continue
-            # 智能识别层级
             level = smart_recognize_level(text)
             stats[level] += 1
-            # 降重规则执行
             proc_text = para.text
             if enable_plagiarism_rule:
                 proc_text = rewrite_by_plagiarism_logic(proc_text)
@@ -169,13 +172,11 @@ def process_doc(uf, cfg, num_cfg, enable_plagiarism_rule, enable_human_rule, ai_
                 proc_text = inject_human_writing_features(proc_text)
             if proc_text != para.text:
                 para.text = proc_text
-            # 格式应用
             lv_cfg = cfg[level]
             fs = FONT_SIZE_NUM[lv_cfg["size"]]
             if force_style:
                 try: para.style = level
                 except Exception: pass
-            # 段落格式
             try:
                 if lv_cfg["align"]!="不修改":
                     para.alignment = ALIGN_MAP[lv_cfg["align"]]
@@ -190,14 +191,12 @@ def process_doc(uf, cfg, num_cfg, enable_plagiarism_rule, enable_human_rule, ai_
                 if level=="正文" and lv_cfg["indent"]>0:
                     para.paragraph_format.first_line_indent = Cm(lv_cfg["indent"]*0.35)
             except Exception: pass
-            # 数字格式
             if level == "正文" and num_cfg["enable"]:
                 process_number_font(para, lv_cfg["font"], fs, num_cfg)
             else:
                 for run in para.runs:
                     set_run_font(run, lv_cfg["font"], fs, lv_cfg["bold"])
 
-        # 表格处理
         for table in doc.tables:
             stats["表格"] += 1
             tb_cfg = cfg["表格"]
@@ -208,7 +207,6 @@ def process_doc(uf, cfg, num_cfg, enable_plagiarism_rule, enable_human_rule, ai_
                         for run in p.runs:
                             set_run_font(run, tb_cfg["font"], fs, tb_cfg["bold"])
 
-        # 清理空行
         if clear_blank:
             cnt = 0
             for p in reversed(list(doc.paragraphs)):
@@ -236,12 +234,10 @@ def main():
     if "cur_cfg" not in st.session_state:
         st.session_state.cur_cfg = GENERAL_TPL["默认格式"]
 
-    # 页面头部
     st.title("📄 全场景智能降重与格式排版系统")
     st.markdown("### 🔗 专属AI降重智能体：[点击跳转使用]({})".format(COZE_BOT_URL))
     st.success("✅ 智能识别标题/正文 | ✅ 击穿查重底层逻辑 | ✅ 人类写作特征注入 | ✅ 零运行错误")
 
-    # 模板选择
     st.subheader("📋 格式模板选择")
     tpl_type = st.radio("模板类型", ["通用模板","高校毕业论文","党政公文"], horizontal=True)
     tpl_map = GENERAL_TPL if tpl_type=="通用模板" else UNIVERSITY_TPL if tpl_type=="高校毕业论文" else OFFICIAL_TPL
@@ -250,7 +246,6 @@ def main():
         st.session_state.cur_cfg = tpl_map[tpl_name]
         st.rerun()
 
-    # 侧边栏配置
     with st.sidebar:
         st.header("⚙️ 核心功能开关")
         enable_plagiarism = st.checkbox("启用【全场景降重方法论】", value=True)
@@ -270,7 +265,6 @@ def main():
             num_cfg["size"] = st.selectbox("数字字号",FONT_SIZE_LIST,index=9) if not num_cfg["size_same_as_body"] else "小四"
             num_cfg["bold"] = st.checkbox("数字加粗",False)
 
-    # 文档上传
     st.divider()
     uploaded = st.file_uploader("📤 上传Word文档（.docx）", type="docx")
     if uploaded:
@@ -279,8 +273,7 @@ def main():
             with st.spinner("正在识别标题正文+执行降重规则..."):
                 doc_data, stats = process_doc(
                     uploaded, st.session_state.cur_cfg, num_cfg,
-                    enable_plagiarism, enable_human, "professional",
-                    force_style, keep_space, clear_blank, max_blank
+                    enable_plagiarism, enable_human, force_style, keep_space, clear_blank, max_blank
                 )
                 if doc_data:
                     st.subheader("📊 文档识别统计")
@@ -294,7 +287,6 @@ def main():
                     st.download_button("📥 下载处理完成文档", doc_data, f"降重排版_{uploaded.name}", use_container_width=True)
                     st.success("🎉 处理完成！完全遵循查重规则+人类写作特征")
 
-    # 规则说明
     with st.expander("📖 降重底层规则说明"):
         st.markdown("""
         **1. 查重击穿规则**
